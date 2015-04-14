@@ -2,13 +2,17 @@ __author__ = "Steven Sarasin <tutoringsteve@gmail.com"
 
 import libtcodpy as libtcod
 
-# window size
-SCREEN_WIDTH = 80
-SCREEN_HEIGHT = 50
 
 # size of the map
 MAP_WIDTH = 80
 MAP_HEIGHT = 45
+
+STAT_PANEL_WIDTH = 20
+STAT_PANEL_HEIGHT = MAP_HEIGHT
+
+# window size
+SCREEN_WIDTH = STAT_PANEL_WIDTH + MAP_WIDTH
+SCREEN_HEIGHT = MAP_HEIGHT
 
 ROOM_MAX_SIZE = 10
 ROOM_MIN_SIZE = 6
@@ -142,7 +146,8 @@ def create_room(room):
 
 libtcod.console_set_custom_font('arial10x10.png', libtcod.FONT_TYPE_GRAYSCALE | libtcod.FONT_LAYOUT_TCOD)
 libtcod.console_init_root(SCREEN_WIDTH, SCREEN_HEIGHT, 'python/libtcod tutorial', False)
-con = libtcod.console_new(SCREEN_WIDTH, SCREEN_HEIGHT)
+con = libtcod.console_new(MAP_WIDTH, MAP_HEIGHT)
+stat_con = libtcod.console_new(STAT_PANEL_WIDTH, STAT_PANEL_HEIGHT)
 
 # will have no effect on turn-based games
 libtcod.sys_set_fps(LIMIT_FPS)
@@ -174,7 +179,7 @@ class Object:
 
 
 player = Object(25, 23, '@', libtcod.white)
-npc = Object(SCREEN_WIDTH / 2 - 5, SCREEN_HEIGHT / 2, '@', libtcod.yellow)
+npc = Object(MAP_WIDTH / 2 - 5, MAP_HEIGHT / 2, '@', libtcod.yellow)
 objects = [npc, player]
 
 
@@ -231,7 +236,8 @@ def draw_all():
         object.draw()
 
     # blit the contents of console 'con' to the root console (numeral) '0'
-    libtcod.console_blit(con, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, 0)
+    libtcod.console_blit(stat_con, 0, 0, STAT_PANEL_WIDTH, STAT_PANEL_HEIGHT, 0, 0, 0)
+    libtcod.console_blit(con, 0, 0, MAP_WIDTH, MAP_HEIGHT, 0, STAT_PANEL_WIDTH, 0)
 
 
 def clear_all():
@@ -265,18 +271,15 @@ total_explored = sum(explored_gen())
 while not libtcod.console_is_window_closed():
     libtcod.console_set_default_foreground(0, libtcod.white)
 
+    # A string with a red over black word, using predefined color control codes
+    libtcod.console_set_color_control(libtcod.COLCTRL_1,libtcod.red,libtcod.black)
+    libtcod.console_print(stat_con, 1, 1, "Position: %c(%s, %s)%c" % (libtcod.COLCTRL_1, player.x, player.y, libtcod.COLCTRL_STOP))
+
     draw_all()
 
     libtcod.console_flush()
 
     clear_all()
-    # A string with a red over black word, using predefined color control codes
-    libtcod.console_set_color_control(libtcod.COLCTRL_1,libtcod.red,libtcod.black)
-    libtcod.console_print(0,1,1,"String with a %cred%c word."%(libtcod.COLCTRL_1,libtcod.COLCTRL_STOP))
-    # A string with a red word (over default background color), using generic color control codes
-    libtcod.console_print(0,1,2,"String with a %c%c%c%cred%c word."%(libtcod.COLCTRL_FORE_RGB,255,1,1,libtcod.COLCTRL_STOP))
-    # A string with a red over black word, using generic color control codes
-    libtcod.console_print(0,1,3,"String with a %c%c%c%c%c%c%c%cred%c word." % (libtcod.COLCTRL_FORE_RGB,255,1,1,libtcod.COLCTRL_BACK_RGB,1,1,1,libtcod.COLCTRL_STOP))
     # handle keys and exit game if needed
     exit = handle_keys()
     if exit:
