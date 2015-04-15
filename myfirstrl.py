@@ -21,9 +21,8 @@ MAX_ROOMS = 26
 FOV_ALGO = 0
 FOV_LIGHT_WALLS = True
 TORCH_RADIUS = 10
-fov_recompute = False
 
-LIMIT_FPS = 20
+fov_recompute = True
 
 color_dark_wall = libtcod.Color(r=0, g=0, b=100)
 color_lit_wall = libtcod.Color(r=130, g=110, b=50)
@@ -73,7 +72,6 @@ def make_map():
         if not failed:
             create_room(new_room)
             new_x, new_y = new_room.center()
-            print chr(65 + num_rooms), "x1, x2, y1, y2, c1, c2", new_room.x1, new_room.x2, new_room.y1, new_room.y2, new_x, new_y
 
             # optional: print "room number" to see how the map drawing works
             room_no = Object(new_x, new_y, chr(65 + num_rooms), libtcod.white)
@@ -92,7 +90,6 @@ def make_map():
                 else:
                     create_v_tunnel(prev_x, prev_y, new_y)
                     create_h_tunnel(prev_x, new_x, new_y)
-                print "this happened at num_rooms", num_rooms
             rooms.append(new_room)
             num_rooms += 1
 
@@ -148,9 +145,6 @@ libtcod.console_set_custom_font('arial10x10.png', libtcod.FONT_TYPE_GRAYSCALE | 
 libtcod.console_init_root(SCREEN_WIDTH, SCREEN_HEIGHT, 'python/libtcod tutorial', False)
 con = libtcod.console_new(MAP_WIDTH, MAP_HEIGHT)
 stat_con = libtcod.console_new(STAT_PANEL_WIDTH, STAT_PANEL_HEIGHT)
-
-# will have no effect on turn-based games
-libtcod.sys_set_fps(LIMIT_FPS)
 
 
 class Object:
@@ -212,7 +206,7 @@ def draw_all():
     global fov_recompute
 
     if fov_recompute:
-        #recompute FOV if needed (the player moved or something)
+        # recompute FOV if needed (the player moved or something)
         fov_recompute = False
         libtcod.map_compute_fov(fov_map, player.x, player.y, TORCH_RADIUS, FOV_LIGHT_WALLS, FOV_ALGO)
 
@@ -272,8 +266,9 @@ while not libtcod.console_is_window_closed():
     libtcod.console_set_default_foreground(0, libtcod.white)
 
     # A string with a red over black word, using predefined color control codes
-    libtcod.console_set_color_control(libtcod.COLCTRL_1,libtcod.red,libtcod.black)
-    libtcod.console_print(stat_con, 1, 1, "Position: %c(%s, %s)%c" % (libtcod.COLCTRL_1, player.x, player.y, libtcod.COLCTRL_STOP))
+    libtcod.console_set_color_control(libtcod.COLCTRL_1, libtcod.red, libtcod.black)
+    libtcod.console_print(stat_con, 1, 1,
+                          "Position: %c(%s, %s)%c" % (libtcod.COLCTRL_1, player.x, player.y, libtcod.COLCTRL_STOP))
 
     draw_all()
 
