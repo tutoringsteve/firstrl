@@ -24,6 +24,8 @@ TORCH_RADIUS = 10
 
 fov_recompute = True
 
+LIMIT_FPS = 20
+
 color_dark_wall = libtcod.Color(r=0, g=0, b=100)
 color_lit_wall = libtcod.Color(r=130, g=110, b=50)
 color_dark_ground = libtcod.Color(r=50, g=50, b=150)
@@ -145,6 +147,9 @@ libtcod.console_set_custom_font('arial10x10.png', libtcod.FONT_TYPE_GRAYSCALE | 
 libtcod.console_init_root(SCREEN_WIDTH, SCREEN_HEIGHT, 'python/libtcod tutorial', False)
 con = libtcod.console_new(MAP_WIDTH, MAP_HEIGHT)
 stat_con = libtcod.console_new(STAT_PANEL_WIDTH, STAT_PANEL_HEIGHT)
+
+# will have no effect on turn-based games
+libtcod.sys_set_fps(LIMIT_FPS)
 
 
 class Object:
