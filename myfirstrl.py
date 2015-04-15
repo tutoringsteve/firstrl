@@ -123,6 +123,17 @@ def in_map(x, y):
     return (x in xrange(MAP_WIDTH)) and (y in xrange(MAP_HEIGHT))
 
 
+def is_blocked(x, y):
+    if tile_map[x][y].blocked:
+        return True
+
+    for object in objects:
+        if object.blocks and ((object.x, object.y) == (x, y)):
+            return True
+
+    return False
+
+
 def create_h_tunnel(x1, x2, y):
     x1, x2 = min(x1, x2), max(x1, x2)
     for x in xrange(x1, x2 + 1):
@@ -169,7 +180,7 @@ class Object:
         self.blocks = blocks
 
     def move(self, dx, dy):
-        if (in_map(self.x + dx, self.y + dy)) and (not tile_map[self.x + dx][self.y + dy].blocked):
+        if (in_map(self.x + dx, self.y + dy)) and (not is_blocked(self.x + dx, self.y + dy)):
             # move by the given amount
             self.x += dx
             self.y += dy
@@ -256,7 +267,9 @@ def draw_all():
                         libtcod.console_set_char_background(con, x, y, color_lit_ground, libtcod.BKGND_SET)
                     tile_map[x][y].explored = True
     for object in objects:
-        object.draw()
+        visible = libtcod.map_is_in_fov(fov_map, object.x, object.y)
+        if visible:
+            object.draw()
 
     # blit the contents of console 'con' to the root console (numeral) '0'
     libtcod.console_blit(stat_con, 0, 0, STAT_PANEL_WIDTH, STAT_PANEL_HEIGHT, 0, 0, 0)
