@@ -201,17 +201,18 @@ def place_objects(room):
 
     for i in xrange(num_monsters):
         # choose random spot for this monster within the given room
-        x = libtcod.random_get_int(0, room.x1 + 1, room.x2 - 1)
-        y = libtcod.random_get_int(0, room.y1 + 1, room.y2 - 1)
+        x = libtcod.random_get_int(0, room.x1, room.x2)
+        y = libtcod.random_get_int(0, room.y1, room.y2)
 
-        if libtcod.random_get_int(0, 0, 100) < 80:
-            # create an orc (80% chance)
-            monster = Object(x, y, 'o', 'Pathetic Orc', libtcod.desaturated_green, blocks=True)
-        else:
-            # create a Troll (20% chance)
-            monster = Object(x, y, 'T', 'Troll Runt', libtcod.darker_green, blocks=True)
+        if not is_blocked(x, y):
+            if libtcod.random_get_int(0, 0, 100) < 80:
+                # create an orc (80% chance)
+                monster = Object(x, y, 'o', 'Pathetic Orc', libtcod.desaturated_green, blocks=True)
+            else:
+                # create a Troll (20% chance)
+                monster = Object(x, y, 'T', 'Troll Runt', libtcod.darker_green, blocks=True)
 
-        objects.append(monster)
+            objects.append(monster)
 
 player = Object(25, 23, '@', 'The Player <You>', libtcod.white, blocks=True)
 objects = [player]
@@ -266,6 +267,7 @@ def draw_all():
                     else:
                         libtcod.console_set_char_background(con, x, y, color_lit_ground, libtcod.BKGND_SET)
                     tile_map[x][y].explored = True
+
     for object in objects:
         visible = libtcod.map_is_in_fov(fov_map, object.x, object.y)
         if visible:
@@ -290,20 +292,6 @@ for y in xrange(MAP_HEIGHT):
         libtcod.map_set_properties(fov_map, x, y, not tile_map[x][y].block_sight, not tile_map[x][y].blocked)
 
 
-def blocked_gen():
-    for y in xrange(MAP_HEIGHT):
-        for x in xrange(MAP_WIDTH):
-            yield (not tile_map[x][y].blocked)
-
-
-def explored_gen():
-    for y in xrange(MAP_HEIGHT):
-        for x in xrange(MAP_WIDTH):
-            yield (tile_map[x][y].explored)
-
-
-total_walkable = sum(blocked_gen())
-total_explored = sum(explored_gen())
 while not libtcod.console_is_window_closed():
     libtcod.console_set_default_foreground(0, libtcod.white)
 
