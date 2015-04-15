@@ -81,7 +81,7 @@ def make_map():
             new_x, new_y = new_room.center()
 
             # optional: print "room number" to see how the map drawing works
-            room_no = Object(new_x, new_y, chr(65 + num_rooms), libtcod.white)
+            room_no = Object(new_x, new_y, chr(65 + num_rooms), chr(65 + num_rooms), libtcod.white)
             objects.insert(0, room_no)
             if num_rooms == 0:
                 # place character center of first room
@@ -160,11 +160,13 @@ libtcod.sys_set_fps(LIMIT_FPS)
 class Object:
     # this is a generic object: the player, a monster, an item, the stairs...
     # it's always represented by a character on screen.
-    def __init__(self, x, y, char, color):
+    def __init__(self, x, y, char, name, color, blocks=False):
         self.x = x
         self.y = y
         self.char = char
+        self.name = name
         self.color = color
+        self.blocks = blocks
 
     def move(self, dx, dy):
         if (in_map(self.x + dx, self.y + dy)) and (not tile_map[self.x + dx][self.y + dy].blocked):
@@ -193,14 +195,14 @@ def place_objects(room):
 
         if libtcod.random_get_int(0, 0, 100) < 80:
             # create an orc (80% chance)
-            monster = Object(x, y, 'o', libtcod.desaturated_green)
+            monster = Object(x, y, 'o', 'Pathetic Orc', libtcod.desaturated_green, blocks=True)
         else:
             # create a Troll (20% chance)
-            monster = Object(x, y, 'T', libtcod.darker_green)
+            monster = Object(x, y, 'T', 'Troll Runt', libtcod.darker_green, blocks=True)
 
         objects.append(monster)
 
-player = Object(25, 23, '@', libtcod.white)
+player = Object(25, 23, '@', 'The Player <You>', libtcod.white, blocks=True)
 objects = [player]
 
 
