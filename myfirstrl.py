@@ -81,8 +81,8 @@ def make_map():
             new_x, new_y = new_room.center()
 
             # optional: print "room number" to see how the map drawing works
-            room_no = Object(new_x, new_y, chr(65 + num_rooms), chr(65 + num_rooms), libtcod.white)
-            objects.insert(0, room_no)
+            # room_no = Object(new_x, new_y, chr(65 + num_rooms), chr(65 + num_rooms), libtcod.white)
+            # objects.insert(0, room_no)
             if num_rooms == 0:
                 # place character center of first room
                 player.x, player.y = new_room.center()
@@ -176,6 +176,22 @@ class Fighter:
         self.defense = defense
         self.power = power
 
+    def take_damage(self, damage):
+        # apply damage if possible
+        if damage > 0:
+            self.hp -= damage
+
+    def attack(self, target):
+        # a simple formula for attack damage
+        damage = self.power - target.fighter.defense
+
+        if damage > 0:
+            # make the target take some damage
+            print self.owner.name.capitalize(), 'attacks', target.name, 'for', str(damage), 'hit points.'
+            target.fighter.take_damage(damage)
+        else:
+            print self.owner.name.capitalize(), 'attacks', target.name, 'for no damage!'
+
 
 class BasicMonster:
     # AI for a basic monster:
@@ -189,7 +205,7 @@ class BasicMonster:
             if monster.distance_to(player) >= 2:
                 monster.move_towards(player.x, player.y)
             elif player.fighter.hp > 0:
-                print 'The attack of the', monster.name, 'bounces off your shiny armor!'
+                monster.fighter.attack(player)
 
 
 class Object:
@@ -233,6 +249,8 @@ class Object:
         dx = int(round(dx/distance))
         dy = int(round(dy/distance))
         self.move(dx, dy)
+
+
 
     def draw(self):
         # set the color and then
@@ -292,8 +310,8 @@ def player_move_or_attack(dx, dy):
             break
 
     # attack if target found, move otherwise
-    if target is not None:
-        print 'The', target.name, 'laughs off your puny attack'
+    if type(target) == Object and target.fighter:
+        player.fighter.attack(target)
     else:
         player.move(dx, dy)
         fov_recompute = True
@@ -363,6 +381,8 @@ def clear_all():
     for object in objects:
         object.clear()
 
+    libtcod.console_clear(stat_con)
+
 
 make_map()
 
@@ -385,7 +405,9 @@ while not libtcod.console_is_window_closed():
     libtcod.console_set_color_control(libtcod.COLCTRL_1, libtcod.red, libtcod.black)
     libtcod.console_print(stat_con, 1, 1,
                           "Position: %c(%s, %s)%c" % (libtcod.COLCTRL_1, player.x, player.y, libtcod.COLCTRL_STOP))
-
+    libtcod.console_print(stat_con, 1, 2, "HP: %s/%s" % (player.fighter.hp, player.fighter.max_hp))
+    libtcod.console_print(stat_con, 1, 3, "Defense: %s" % player.fighter.defense)
+    libtcod.console_print(stat_con, 1, 4, "Power: %s" % player.fighter.power)
     draw_all()
 
     libtcod.console_flush()
