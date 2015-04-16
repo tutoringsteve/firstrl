@@ -10,9 +10,12 @@ MAP_HEIGHT = 45
 STAT_PANEL_WIDTH = 20
 STAT_PANEL_HEIGHT = MAP_HEIGHT
 
+MSG_PANEL_HEIGHT = 5
+MSG_PANEL_WIDTH = MAP_WIDTH + STAT_PANEL_WIDTH
+
 # window size
 SCREEN_WIDTH = STAT_PANEL_WIDTH + MAP_WIDTH
-SCREEN_HEIGHT = MAP_HEIGHT
+SCREEN_HEIGHT = MAP_HEIGHT + MSG_PANEL_HEIGHT
 
 ROOM_MAX_SIZE = 10
 ROOM_MIN_SIZE = 6
@@ -163,9 +166,28 @@ libtcod.console_set_custom_font('arial10x10.png', libtcod.FONT_TYPE_GRAYSCALE | 
 libtcod.console_init_root(SCREEN_WIDTH, SCREEN_HEIGHT, 'python/libtcod tutorial', False)
 con = libtcod.console_new(MAP_WIDTH, MAP_HEIGHT)
 stat_con = libtcod.console_new(STAT_PANEL_WIDTH, STAT_PANEL_HEIGHT)
-
+msg_con = libtcod.console_new(MSG_PANEL_WIDTH, MSG_PANEL_HEIGHT)
 # will have no effect on turn-based games
 libtcod.sys_set_fps(LIMIT_FPS)
+
+
+def render_bar(console, x, y, total_width, name, value, maximum, bar_color, back_color):
+    # render a bar for health or some other stat that can be decreased from max to 0
+    bar_width = int(float(value) / maximum * total_width)
+
+    # render the background first
+    libtcod.console_set_default_background(console, back_color)
+    libtcod.console_rect(console, x, y, total_width, 1, False, libtcod.BKGND_SET)
+
+    # now render the bar on top
+    libtcod.console_set_default_background(console, bar_color)
+    if bar_width > 0:
+        libtcod.console_rect(console, x, y, bar_width, 1, False, libtcod.BKGND_SET)
+    # centered text with values over bar
+    libtcod.console_set_default_foreground(console, libtcod.white)
+    libtcod.console_print_ex(console, x + total_width / 2, y, libtcod.BKGND_NONE, libtcod.CENTER,
+                             '%s: %s/%s' % (name, value, maximum))
+    libtcod.console_set_default_background(console, libtcod.black)
 
 
 def player_death(player):
@@ -266,17 +288,17 @@ class Object:
         # return the distance to another Object
         dx = other.x - self.x
         dy = other.y - self.y
-        return math.sqrt(dx**2 + dy**2)
+        return math.sqrt(dx ** 2 + dy ** 2)
 
     def move_towards(self, target_x, target_y):
         # vector from current location to desired location
         dx = target_x - self.x
         dy = target_y - self.y
-        distance = math.sqrt(dx**2 + dy**2)
+        distance = math.sqrt(dx ** 2 + dy ** 2)
 
         # normalize vector
-        dx = int(round(dx/distance))
-        dy = int(round(dy/distance))
+        dx = int(round(dx / distance))
+        dy = int(round(dy / distance))
         self.move(dx, dy)
 
     def draw(self):
@@ -294,6 +316,7 @@ class Object:
         global objects
         objects.remove(self)
         objects.insert(0, self)
+
 
 def place_objects(room):
     # choose random number of monsters
@@ -408,7 +431,7 @@ def draw_all():
     # blit the contents of console 'con' to the root console (numeral) '0'
     libtcod.console_blit(stat_con, 0, 0, STAT_PANEL_WIDTH, STAT_PANEL_HEIGHT, 0, 0, 0)
     libtcod.console_blit(con, 0, 0, MAP_WIDTH, MAP_HEIGHT, 0, STAT_PANEL_WIDTH, 0)
-
+    libtcod.console_blit(msg_con, 0, 0, MSG_PANEL_WIDTH, MSG_PANEL_HEIGHT, 0, 0, MAP_HEIGHT)
 
 def clear_all():
     # clear all objects in the objects list
@@ -442,6 +465,7 @@ while not libtcod.console_is_window_closed():
     libtcod.console_print(stat_con, 1, 2, "HP: %s/%s" % (player.fighter.hp, player.fighter.max_hp))
     libtcod.console_print(stat_con, 1, 3, "Defense: %s" % player.fighter.defense)
     libtcod.console_print(stat_con, 1, 4, "Power: %s" % player.fighter.power)
+    render_bar(stat_con, 1, 5, STAT_PANEL_WIDTH-2, 'HP', player.fighter.hp, player.fighter.max_hp, libtcod.darker_green, libtcod.dark_red)
     draw_all()
 
     libtcod.console_flush()
