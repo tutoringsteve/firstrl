@@ -83,7 +83,7 @@ def make_map():
 
             new_x, new_y = new_room.center()
 
-            # optional: print "room number" to see how the map drawing works
+            # optional: msg = "room number" to see how the map drawing works
             # room_no = Object(new_x, new_y, chr(65 + num_rooms), chr(65 + num_rooms), libtcod.white)
             # objects.insert(0, room_no)
             if num_rooms == 0:
@@ -191,8 +191,9 @@ def render_bar(console, x, y, total_width, name, value, maximum, bar_color, back
 
 
 def player_death(player):
-    global game_state
-    print 'You have been killed!'
+    global game_state, messages
+    msg = 'You have been killed!'
+    messages.append(msg)
     game_state = 'dead'
 
     # change player look to corpse on death
@@ -201,8 +202,10 @@ def player_death(player):
 
 
 def monster_death(monster):
+    global messages
     # transform monster into corpse! It no longer has AI and no longer blocks
-    print monster.name.capitalize(), 'has been killed!'
+    msg = monster.name.capitalize() + 'has been killed!'
+    messages.append(msg)
     monster.char = '%'
     monster.color = libtcod.dark_red
     monster.blocks = False
@@ -233,16 +236,18 @@ class Fighter:
                 function(self.owner)
 
     def attack(self, target):
+        global messages
         # a simple formula for attack damage
         damage = self.power - target.fighter.defense
 
         if damage > 0:
             # make the target take some damage
-            print self.owner.name.capitalize(), 'attacks', target.name, 'for', str(damage), 'hit points.'
+            msg = self.owner.name.capitalize() + ' attacks ' + target.name + ' for ' + str(damage) + ' hit points.'
+            messages.append(msg)
             target.fighter.take_damage(damage)
         else:
-            print self.owner.name.capitalize(), 'attacks', target.name, 'for no damage!'
-
+            msg = self.owner.name.capitalize() + ' attacks ' + target.name + ' for no damage!'
+            messages.append(msg)
 
 class BasicMonster:
     # AI for a basic monster:
@@ -349,6 +354,8 @@ def place_objects(room):
 fighter_component = Fighter(hp=30, defense=2, power=5, death_function=player_death)
 player = Object(25, 23, '@', 'The Player <You>', libtcod.white, blocks=True, fighter=fighter_component)
 objects = [player]
+msg = 'Welcome back to <game>, player ' + player.name + '! Prepare to die!'
+messages = [msg]
 
 
 def player_move_or_attack(dx, dy):
@@ -427,6 +434,13 @@ def draw_all():
         visible = libtcod.map_is_in_fov(fov_map, object.x, object.y)
         if visible:
             object.draw()
+
+    # print the last many messages to the message console that will fit in the console.
+    for i, msg in enumerate(reversed(messages)):
+        if i > MSG_PANEL_HEIGHT:
+            break
+        else:
+            libtcod.console_print(msg_con, 1, i, msg)
 
     # blit the contents of console 'con' to the root console (numeral) '0'
     libtcod.console_blit(stat_con, 0, 0, STAT_PANEL_WIDTH, STAT_PANEL_HEIGHT, 0, 0, 0)
