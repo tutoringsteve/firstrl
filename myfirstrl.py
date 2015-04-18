@@ -10,7 +10,7 @@ MAP_HEIGHT = 45
 STAT_PANEL_WIDTH = 20
 STAT_PANEL_HEIGHT = MAP_HEIGHT
 
-MSG_PANEL_HEIGHT = 5
+MSG_PANEL_HEIGHT = 10
 MSG_PANEL_WIDTH = MAP_WIDTH + STAT_PANEL_WIDTH
 
 # window size
@@ -29,7 +29,7 @@ TORCH_RADIUS = 10
 
 fov_recompute = True
 
-LIMIT_FPS = 20
+LIMIT_FPS = 400
 
 color_dark_wall = libtcod.Color(r=0, g=0, b=100)
 color_lit_wall = libtcod.Color(r=130, g=110, b=50)
@@ -129,11 +129,9 @@ def in_map(x, y):
 def is_blocked(x, y):
     if tile_map[x][y].blocked:
         return True
-
     for object in objects:
         if object.blocks and ((object.x, object.y) == (x, y)):
             return True
-
     return False
 
 
@@ -248,6 +246,7 @@ class Fighter:
         else:
             msg = self.owner.name.capitalize() + ' attacks ' + target.name + ' for no damage!'
             messages.append(msg)
+
 
 class BasicMonster:
     # AI for a basic monster:
@@ -382,9 +381,8 @@ def player_move_or_attack(dx, dy):
 
 
 def handle_keys():
-    global fov_recompute
+    global fov_recompute, key
 
-    key = libtcod.console_check_for_keypress(True)
     if key.vk == libtcod.KEY_ENTER and key.lalt:
         # Alt + Enter: toggle fullscreen
         libtcod.console_set_fullscreen(not libtcod.console_is_fullscreen())
@@ -393,19 +391,30 @@ def handle_keys():
 
     if game_state == 'playing':
         # movement keys
-        if libtcod.console_is_key_pressed(libtcod.KEY_UP):
+        if key.vk == libtcod.KEY_UP:
             player_move_or_attack(0, -1)
-        elif libtcod.console_is_key_pressed(libtcod.KEY_DOWN):
+        elif key.vk == libtcod.KEY_DOWN:
             player_move_or_attack(0, 1)
-        elif libtcod.console_is_key_pressed(libtcod.KEY_LEFT):
+        elif key.vk == libtcod.KEY_LEFT:
             player_move_or_attack(-1, 0)
-        elif libtcod.console_is_key_pressed(libtcod.KEY_RIGHT):
+        elif key.vk == libtcod.KEY_RIGHT:
             player_move_or_attack(1, 0)
         else:
             return 'didnt-take-turn'
 
 
 def draw_all():
+    draw_map_panel()
+    draw_messages_panel()
+    draw_stat_panel()
+
+    # blit the contents of console 'con' to the root console (numeral) '0'
+    libtcod.console_blit(stat_con, 0, 0, STAT_PANEL_WIDTH, STAT_PANEL_HEIGHT, 0, 0, 0)
+    libtcod.console_blit(con, 0, 0, MAP_WIDTH, MAP_HEIGHT, 0, STAT_PANEL_WIDTH, 0)
+    libtcod.console_blit(msg_con, 0, 0, MSG_PANEL_WIDTH, MSG_PANEL_HEIGHT, 0, 0, MAP_HEIGHT)
+
+
+def draw_map_panel():
     global fov_recompute
 
     if fov_recompute:
@@ -435,24 +444,64 @@ def draw_all():
         if visible:
             object.draw()
 
+
+def draw_messages_panel():
+    # draw the boundary of the panel with a gold line
+    old_foreground_color = libtcod.console_get_default_foreground(msg_con)
+    libtcod.console_set_default_foreground(msg_con, libtcod.gold)
+    libtcod.console_hline(msg_con, 0, 0, MSG_PANEL_WIDTH)
+    libtcod.console_set_default_foreground(msg_con, old_foreground_color)
+
     # print the last many messages to the message console that will fit in the console.
     for i, msg in enumerate(reversed(messages)):
-        if i > MSG_PANEL_HEIGHT:
+        if (i+1) > MSG_PANEL_HEIGHT:
             break
         else:
-            libtcod.console_print(msg_con, 1, i, msg)
+            libtcod.console_print(msg_con, 1, (i+1), msg)
 
-    # blit the contents of console 'con' to the root console (numeral) '0'
-    libtcod.console_blit(stat_con, 0, 0, STAT_PANEL_WIDTH, STAT_PANEL_HEIGHT, 0, 0, 0)
-    libtcod.console_blit(con, 0, 0, MAP_WIDTH, MAP_HEIGHT, 0, STAT_PANEL_WIDTH, 0)
-    libtcod.console_blit(msg_con, 0, 0, MSG_PANEL_WIDTH, MSG_PANEL_HEIGHT, 0, 0, MAP_HEIGHT)
+
+def draw_stat_panel():
+    # draw the boundary of the panel with a gold line
+    old_foreground_color = libtcod.console_get_default_foreground(stat_con)
+    libtcod.console_set_default_foreground(stat_con, libtcod.gold)
+    libtcod.console_vline(stat_con, STAT_PANEL_WIDTH-1, 0, STAT_PANEL_HEIGHT)
+    libtcod.console_set_default_foreground(stat_con, old_foreground_color)
+    
+    # A string with a red over black word, using predefined color control codes
+    libtcod.console_set_color_control(libtcod.COLCTRL_1, libtcod.red, libtcod.black)
+    libtcod.console_print(stat_con, 1, 1,
+                          "Position: %c(%s, %s)%c" % (libtcod.COLCTRL_1, player.x, player.y, libtcod.COLCTRL_STOP))
+    libtcod.console_print(stat_con, 1, 2, "HP: %s/%s" % (player.fighter.hp, player.fighter.max_hp))
+    libtcod.console_print(stat_con, 1, 3, "Defense: %s" % player.fighter.defense)
+    libtcod.console_print(stat_con, 1, 4, "Power: %s" % player.fighter.power)
+    render_bar(stat_con, 1, 5, STAT_PANEL_WIDTH - 2, 'HP', player.fighter.hp, player.fighter.max_hp,
+               libtcod.darker_green, libtcod.dark_red)
+    libtcod.console_print(stat_con, 1, 6, "Mouse: %c(%s, %s)%c" % (
+        libtcod.COLCTRL_1, mouse.cx - STAT_PANEL_WIDTH, mouse.cy, libtcod.COLCTRL_STOP))
+    libtcod.console_print(stat_con, 1, 7, "Mouse target:")
+    libtcod.console_print(stat_con, 1, 8, get_names_under_mouse())
+
 
 def clear_all():
     # clear all objects in the objects list
     for object in objects:
         object.clear()
-
+    libtcod.console_clear(msg_con)
     libtcod.console_clear(stat_con)
+
+
+def get_names_under_mouse():
+    global mouse
+
+    # return a string with the names of all objects under the mouse
+    (x, y) = (mouse.cx - STAT_PANEL_WIDTH, mouse.cy)
+    names = [obj.name for obj in objects if
+             (obj.x == x and obj.y == y and libtcod.map_is_in_fov(fov_map, obj.x, obj.y))]
+    names = set(names)
+    names = ', '.join(names)
+    # if names:
+    #    messages.append(names.capitalize())
+    return names.capitalize()
 
 
 make_map()
@@ -469,21 +518,19 @@ for y in xrange(MAP_HEIGHT):
 game_state = 'playing'
 player_action = None
 
-while not libtcod.console_is_window_closed():
-    libtcod.console_set_default_foreground(0, libtcod.white)
+mouse = libtcod.Mouse()
+key = libtcod.Key()
 
-    # A string with a red over black word, using predefined color control codes
-    libtcod.console_set_color_control(libtcod.COLCTRL_1, libtcod.red, libtcod.black)
-    libtcod.console_print(stat_con, 1, 1,
-                          "Position: %c(%s, %s)%c" % (libtcod.COLCTRL_1, player.x, player.y, libtcod.COLCTRL_STOP))
-    libtcod.console_print(stat_con, 1, 2, "HP: %s/%s" % (player.fighter.hp, player.fighter.max_hp))
-    libtcod.console_print(stat_con, 1, 3, "Defense: %s" % player.fighter.defense)
-    libtcod.console_print(stat_con, 1, 4, "Power: %s" % player.fighter.power)
-    render_bar(stat_con, 1, 5, STAT_PANEL_WIDTH-2, 'HP', player.fighter.hp, player.fighter.max_hp, libtcod.darker_green, libtcod.dark_red)
+while not libtcod.console_is_window_closed():
+
+    libtcod.sys_check_for_event(libtcod.EVENT_KEY_PRESS | libtcod.EVENT_MOUSE, key, mouse)
+
+    if mouse:
+        get_names_under_mouse()
+
     draw_all()
 
     libtcod.console_flush()
-
     clear_all()
     # handle keys and exit game if needed
     player_action = handle_keys()
