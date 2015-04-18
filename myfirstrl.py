@@ -454,32 +454,33 @@ def draw_messages_panel():
 
     # print the last many messages to the message console that will fit in the console.
     for i, msg in enumerate(reversed(messages)):
-        if (i+1) > MSG_PANEL_HEIGHT:
+        if (i + 1) > MSG_PANEL_HEIGHT:
             break
         else:
-            libtcod.console_print(msg_con, 1, (i+1), msg)
+            libtcod.console_print(msg_con, 1, (i + 1), msg)
 
 
 def draw_stat_panel():
     # draw the boundary of the panel with a gold line
     old_foreground_color = libtcod.console_get_default_foreground(stat_con)
     libtcod.console_set_default_foreground(stat_con, libtcod.gold)
-    libtcod.console_vline(stat_con, STAT_PANEL_WIDTH-1, 0, STAT_PANEL_HEIGHT)
+    libtcod.console_vline(stat_con, STAT_PANEL_WIDTH - 1, 0, STAT_PANEL_HEIGHT)
     libtcod.console_set_default_foreground(stat_con, old_foreground_color)
-    
+
     # A string with a red over black word, using predefined color control codes
     libtcod.console_set_color_control(libtcod.COLCTRL_1, libtcod.red, libtcod.black)
+    libtcod.console_set_color_control(libtcod.COLCTRL_2, libtcod.green, libtcod.black)
     libtcod.console_print(stat_con, 1, 1,
                           "Position: %c(%s, %s)%c" % (libtcod.COLCTRL_1, player.x, player.y, libtcod.COLCTRL_STOP))
-    libtcod.console_print(stat_con, 1, 2, "HP: %s/%s" % (player.fighter.hp, player.fighter.max_hp))
-    libtcod.console_print(stat_con, 1, 3, "Defense: %s" % player.fighter.defense)
-    libtcod.console_print(stat_con, 1, 4, "Power: %s" % player.fighter.power)
-    render_bar(stat_con, 1, 5, STAT_PANEL_WIDTH - 2, 'HP', player.fighter.hp, player.fighter.max_hp,
+    libtcod.console_print(stat_con, 1, 2, "Defense: %s" % player.fighter.defense)
+    libtcod.console_print(stat_con, 1, 3, "Power: %s" % player.fighter.power)
+    render_bar(stat_con, 1, 4, STAT_PANEL_WIDTH - 2, 'HP', player.fighter.hp, player.fighter.max_hp,
                libtcod.darker_green, libtcod.dark_red)
-    libtcod.console_print(stat_con, 1, 6, "Mouse: %c(%s, %s)%c" % (
+    libtcod.console_print(stat_con, 1, 5, "Mouse: %c(%s, %s)%c" % (
         libtcod.COLCTRL_1, mouse.cx - STAT_PANEL_WIDTH, mouse.cy, libtcod.COLCTRL_STOP))
-    libtcod.console_print(stat_con, 1, 7, "Mouse target:")
-    libtcod.console_print(stat_con, 1, 8, get_names_under_mouse())
+    libtcod.console_print(stat_con, 1, 6, "Mouse %ctarget%c:" % (libtcod.COLCTRL_2, libtcod.COLCTRL_STOP))
+    libtcod.console_print(stat_con, 1, 7,
+                          ("%c" + get_names_under_mouse() + "%c") % (libtcod.COLCTRL_2, libtcod.COLCTRL_STOP))
 
 
 def clear_all():
@@ -500,7 +501,7 @@ def get_names_under_mouse():
     names = set(names)
     names = ', '.join(names)
     # if names:
-    #    messages.append(names.capitalize())
+    # messages.append(names.capitalize())
     return names.capitalize()
 
 
