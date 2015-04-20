@@ -22,6 +22,7 @@ ROOM_MIN_SIZE = 6
 MAX_ROOMS = 26
 
 MAX_ROOM_MONSTERS = 3
+MAX_ROOM_ITEMS = 2
 
 FOV_ALGO = 0
 FOV_LIGHT_WALLS = True
@@ -317,7 +318,6 @@ class Object:
     def send_to_back(self):
         # make this object drawn first, so others will be drawn instead if occupying same
         # tile
-        global objects
         objects.remove(self)
         objects.insert(0, self)
 
@@ -328,8 +328,8 @@ def place_objects(room):
 
     for i in xrange(num_monsters):
         # choose random spot for this monster within the given room
-        x = libtcod.random_get_int(0, room.x1, room.x2)
-        y = libtcod.random_get_int(0, room.y1, room.y2)
+        x = libtcod.random_get_int(0, room.x1+1, room.x2-1)
+        y = libtcod.random_get_int(0, room.y1+1, room.y2-1)
 
         if not is_blocked(x, y):
             if libtcod.random_get_int(0, 0, 100) < 80:
@@ -349,6 +349,22 @@ def place_objects(room):
 
             objects.append(monster)
 
+    place_items(room)
+
+
+def place_items(room):
+    # choose random number of items
+    num_items = libtcod.random_get_int(0, 0, MAX_ROOM_ITEMS)
+
+    for i in xrange(num_items):
+        # choose random spot for this monster within the given room
+        x = libtcod.random_get_int(0, room.x1+1, room.x2-1)
+        y = libtcod.random_get_int(0, room.y1+1, room.y2-1)
+        if not is_blocked(x, y):
+            # healing potion
+            item = Object(x, y, '!', 'healing potion', libtcod.violet)
+            objects.append(item)
+            item.send_to_back()
 
 fighter_component = Fighter(hp=30, defense=2, power=5, death_function=player_death)
 player = Object(25, 23, '@', 'The Player <You>', libtcod.white, blocks=True, fighter=fighter_component)
