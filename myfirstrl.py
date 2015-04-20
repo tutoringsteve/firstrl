@@ -267,7 +267,7 @@ class BasicMonster:
 class Object:
     # this is a generic object: the player, a monster, an item, the stairs...
     # it's always represented by a character on screen.
-    def __init__(self, x, y, char, name, color, blocks=False, fighter=None, AI=None):
+    def __init__(self, x, y, char, name, color, blocks=False, fighter=None, AI=None, item=None):
         self.x = x
         self.y = y
         self.char = char
@@ -282,6 +282,10 @@ class Object:
         self.AI = AI
         if self.AI:
             self.AI.owner = self
+
+        self.item = item
+        if self.item:
+            self.item.owner = self
 
     def move(self, dx, dy):
         if (in_map(self.x + dx, self.y + dy)) and (not is_blocked(self.x + dx, self.y + dy)):
@@ -352,6 +356,20 @@ def place_objects(room):
     place_items(room)
 
 
+class Item:
+    # an item that can be picked up and used.
+    def pick_up(self):
+        # add to the player's inventory and remove from the map
+        if len(inventory) >= 26:
+            message = 'Your inventory is full, cannot pick up ' + self.owner.name + '.'
+            messages.append(message)
+        else:
+            inventory.append(self.owner)
+            objects.remove(self.owner)
+            message = 'You picked up a ' + self.owner.name + '!'
+            messages.append(message)
+
+
 def place_items(room):
     # choose random number of items
     num_items = libtcod.random_get_int(0, 0, MAX_ROOM_ITEMS)
@@ -362,13 +380,18 @@ def place_items(room):
         y = libtcod.random_get_int(0, room.y1+1, room.y2-1)
         if not is_blocked(x, y):
             # healing potion
-            item = Object(x, y, '!', 'healing potion', libtcod.violet)
+            item_component = Item()
+            item = Object(x, y, '!', 'healing potion', libtcod.violet, item=item_component)
             objects.append(item)
+            # make sure items are drawn underneath the player and monsters
             item.send_to_back()
 
 fighter_component = Fighter(hp=30, defense=2, power=5, death_function=player_death)
 player = Object(25, 23, '@', 'The Player <You>', libtcod.white, blocks=True, fighter=fighter_component)
 objects = [player]
+
+inventory = []
+
 msg = 'Welcome back to <game>, player ' + player.name + '! Prepare to die!'
 messages = [msg]
 
@@ -416,6 +439,16 @@ def handle_keys():
         elif key.vk == libtcod.KEY_RIGHT:
             player_move_or_attack(1, 0)
         else:
+            # test for other keys
+            key_char = chr(key.c)
+
+            if key_char == 'g':
+                # pick up an item
+                for object in objects:
+                    if (player.x, player.y) == (object.x, object.y) and object.item:
+                        object.item.pick_up()
+                        break
+
             return 'didnt-take-turn'
 
 
