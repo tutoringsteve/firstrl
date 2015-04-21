@@ -1,4 +1,4 @@
-__author__ = "Steven Sarasin <tutoringsteve@gmail.com"
+__author__ = "Steven Sarasin <tutoringsteve@gmail.com>"
 
 import libtcodpy as libtcod
 import math
@@ -31,6 +31,12 @@ FOV_LIGHT_WALLS = True
 TORCH_RADIUS = 10
 
 HEAL_AMOUNT = 4
+
+LIGHTNING_RANGE = 5
+LIGHTNING_DAMAGE = 20
+
+CONFUSE_NUM_TURNS = 10
+CONFUSE_RANGE = 8
 
 fov_recompute = True
 
@@ -193,6 +199,21 @@ def render_bar(console, x, y, total_width, name, value, maximum, bar_color, back
     libtcod.console_set_default_background(console, libtcod.black)
 
 
+def closest_monster(max_range):
+    # find closest enemy, up to a maximum range, and in the player's FOV
+    closest_enemy = None
+    closest_dist = max_range + 1
+
+    for object in objects:
+        if object.fighter and not object == player and libtcod.map_is_in_fov(fov_map, object.x, object.y):
+            # calculate distance between this object and the player
+            dist = player.distance_to(object)
+            if dist < closest_dist:
+                closest_enemy = object
+                closest_dist = dist
+    return closest_enemy
+
+
 def player_death(player):
     global game_state, messages
     msg = 'You have been killed!'
@@ -273,6 +294,21 @@ class BasicMonster:
             elif player.fighter.hp > 0:
                 monster.fighter.attack(player)
 
+
+class ConfusedMonster:
+    # AI for a temporarily confused monster (reverts to previous AI after a while).
+    def __init__(self, old_AI, num_turns=CONFUSE_NUM_TURNS):
+        self.old_AI = old_AI
+        self.num_turns = num_turns
+
+    def take_turn(self):
+        if self.num_turns > 0:
+            # move in a random direction
+            self.owner.move(libtcod.random_get_int(0, -1, 1), libtcod.random_get_int(0, -1, 1))
+            self.num_turns -= 1
+        else:
+            self.owner.AI = self.old_AI
+            message = 'The ' + self.owner.name + ' is no longer confused.'
 
 class Object:
     # this is a generic object: the player, a monster, an item, the stairs...
@@ -404,6 +440,34 @@ def cast_heal():
     player.fighter.heal(HEAL_AMOUNT)
 
 
+def cast_lightning():
+    monster = closest_monster(LIGHTNING_RANGE)
+    if monster is None:
+        message = 'No enemy is close enough to strike.'
+        messages.append(message)
+        return 'cancelled'
+
+    message = 'A lightning bolt strikes the ' + monster.name + ' with a loud thunder! The damage is ' + str(
+        LIGHTNING_DAMAGE) + ' hit points.'
+    messages.append(message)
+    monster.fighter.take_damage(LIGHTNING_DAMAGE)
+
+
+def cast_confuse():
+    # find closest enemy in-range and confuse it
+    monster = closest_monster(CONFUSE_RANGE)
+    if monster is None:
+        message = 'No enemy is close enough to confuse.'
+        messages.append(message)
+        return 'cancelled'
+    # replace the monster's AI with a "confused" one; after some turns the original AI will be restored
+    old_AI = monster.AI
+    monster.AI = ConfusedMonster(old_AI)
+    monster.AI.owner = monster
+    message = 'The eyes of the ' + monster.name + ' look vancant, confused even. The monster begins to stumble around.'
+    messages.append(message)
+
+
 def place_items(room):
     # choose random number of items
     num_items = libtcod.random_get_int(0, 0, MAX_ROOM_ITEMS)
@@ -413,13 +477,28 @@ def place_items(room):
         x = libtcod.random_get_int(0, room.x1 + 1, room.x2 - 1)
         y = libtcod.random_get_int(0, room.y1 + 1, room.y2 - 1)
         if not is_blocked(x, y):
-            # healing potion
-            item_component = Item(use_function=cast_heal)
-            item = Object(x, y, '!', 'healing potion', libtcod.violet, item=item_component)
-            objects.append(item)
-            # make sure items are drawn underneath the player and monsters
-            item.send_to_back()
-
+            dice = libtcod.random_get_int(0, 0, 100)
+            if dice < 20:
+                # healing potion
+                item_component = Item(use_function=cast_heal)
+                item = Object(x, y, '!', 'healing potion', libtcod.violet, item=item_component)
+                objects.append(item)
+                # make sure items are drawn underneath the player and monsters
+                item.send_to_back()
+            elif dice < 40:
+                # scroll of lightning
+                item_component = Item(use_function=cast_lightning)
+                item = Object(x, y, '?', 'scroll of lightning bolt', libtcod.light_yellow, item=item_component)
+                objects.append(item)
+                # make sure items are drawn underneath the player and monsters
+                item.send_to_back()
+            else:
+                # create a scroll of confusion
+                item_component = Item(use_function=cast_confuse)
+                item = Object(x, y, '?', 'scroll of confusion', libtcod.darker_red, item=item_component)
+                objects.append(item)
+                # make sure items are drawn underneath the player and monsters
+                item.send_to_back()
 
 fighter_component = Fighter(hp=30, defense=2, power=5, death_function=player_death)
 player = Object(25, 23, '@', 'The Player <You>', libtcod.white, blocks=True, fighter=fighter_component)
@@ -458,7 +537,7 @@ def handle_keys():
     global key
 
     if key.vk == libtcod.KEY_ENTER and key.lalt:
-        # Alt + Enter: toggle fullscreen
+        # Alt + Enter: toggle full screen
         libtcod.console_set_fullscreen(not libtcod.console_is_fullscreen())
     elif key.vk == libtcod.KEY_ESCAPE:
         return 'exit'
@@ -569,7 +648,7 @@ def draw_stat_panel():
     libtcod.console_print(stat_con, 1, 5, "Mouse: %c(%s, %s)%c" % (
         libtcod.COLCTRL_1, mouse.cx - STAT_PANEL_WIDTH, mouse.cy, libtcod.COLCTRL_STOP))
     libtcod.console_print(stat_con, 1, 6, "Mouse %ctarget%c:" % (libtcod.COLCTRL_2, libtcod.COLCTRL_STOP))
-    libtcod.console_print_rect(stat_con, 1, 7, STAT_PANEL_WIDTH - 1, 0,
+    libtcod.console_print_rect(stat_con, 1, 7, STAT_PANEL_WIDTH - 2, 0,
                                ("%c" + get_names_under_mouse() + "%c") % (libtcod.COLCTRL_2, libtcod.COLCTRL_STOP))
 
 
@@ -597,7 +676,7 @@ def menu(header, options, width):
         y += 1
         letter_index += 1
 
-    # blit contents of "window" to the root console
+    # blit contents of "window" to the root console, right-aligning the "window"
     x = STAT_PANEL_WIDTH + SCREEN_WIDTH - width
     y = 0
     libtcod.console_blit(window, 0, 0, width, height, 0, x, y, 1.0, 0.7)
@@ -613,13 +692,13 @@ def menu(header, options, width):
 
 
 def inventory_menu(header):
-    global inventory
     if len(inventory) == 0:
         options = ['Inventory is empty.']
     else:
         options = [item.name for item in inventory]
 
     index = menu(header, options, INVENTORY_WIDTH)
+
     # if an item was chosen, return it
     if index is None or len(inventory) == 0:
         return None
@@ -636,16 +715,13 @@ def clear_all():
 
 
 def get_names_under_mouse():
-    global mouse
-
     # return a string with the names of all objects under the mouse
     (x, y) = (mouse.cx - STAT_PANEL_WIDTH, mouse.cy)
     names = [obj.name for obj in objects if
              (obj.x == x and obj.y == y and libtcod.map_is_in_fov(fov_map, obj.x, obj.y))]
     names = set(names)
     names = ', '.join(names)
-    # if names:
-    # messages.append(names.capitalize())
+
     return names.capitalize()
 
 
@@ -670,13 +746,10 @@ while not libtcod.console_is_window_closed():
 
     libtcod.sys_check_for_event(libtcod.EVENT_KEY_PRESS | libtcod.EVENT_MOUSE, key, mouse)
 
-    if mouse:
-        get_names_under_mouse()
-
     draw_all()
-
     libtcod.console_flush()
     clear_all()
+
     # handle keys and exit game if needed
     player_action = handle_keys()
     if player_action == 'exit':
