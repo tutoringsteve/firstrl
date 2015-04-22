@@ -2,6 +2,7 @@ __author__ = "Steven Sarasin <tutoringsteve@gmail.com>"
 
 import libtcodpy as libtcod
 import math
+import textwrap
 
 # size of the map
 MAP_WIDTH = 80
@@ -98,9 +99,6 @@ def make_map():
 
             new_x, new_y = new_room.center()
 
-            # optional: msg = "room number" to see how the map drawing works
-            # room_no = Object(new_x, new_y, chr(65 + num_rooms), chr(65 + num_rooms), libtcod.white)
-            # objects.insert(0, room_no)
             if num_rooms == 0:
                 # place character center of first room
                 player.x, player.y = new_room.center()
@@ -168,8 +166,7 @@ def target_tile(max_range=None):
             return (x, y)
 
         if mouse.rbutton_pressed or key.vk == libtcod.KEY_ESCAPE:
-            message = 'Targeting cancelled by player.'
-            messages.append(message)
+            message('Targeting cancelled by player.', color=libtcod.orange)
             return (None, None)
 
 
@@ -226,6 +223,14 @@ def render_bar(console, x, y, total_width, name, value, maximum, bar_color, back
     libtcod.console_set_default_background(console, libtcod.black)
 
 
+def message(msg, color=libtcod.white, console=msg_con):
+    msg_width = libtcod.console_get_width(console)
+    msg_lines = textwrap.wrap(msg, msg_width)
+
+    for line in msg_lines:
+        messages.append((line, color))
+
+
 def closest_monster(max_range):
     # find closest enemy, up to a maximum range, and in the player's FOV
     closest_enemy = None
@@ -242,9 +247,8 @@ def closest_monster(max_range):
 
 
 def player_death(player):
-    global game_state, messages
-    msg = 'You have been killed!'
-    messages.append(msg)
+    global game_state
+    message('You have been killed!', color=libtcod.lighter_red)
     game_state = 'dead'
 
     # change player look to corpse on death
@@ -255,8 +259,7 @@ def player_death(player):
 def monster_death(monster):
     global messages
     # transform monster into corpse! It no longer has AI and no longer blocks
-    msg = monster.name.capitalize() + ' has been killed!'
-    messages.append(msg)
+    message(monster.name.capitalize() + ' has been killed!', color=libtcod.green)
     monster.char = '%'
     monster.color = libtcod.dark_red
     monster.blocks = False
@@ -299,12 +302,12 @@ class Fighter:
 
         if damage > 0:
             # make the target take some damage
-            msg = self.owner.name.capitalize() + ' attacks ' + target.name + ' for ' + str(damage) + ' hit points.'
-            messages.append(msg)
+            message(self.owner.name.capitalize() + ' attacks ' + target.name + ' for ' + str(damage) + ' hit points.',
+                    color=libtcod.orange)
             target.fighter.take_damage(damage)
         else:
-            msg = self.owner.name.capitalize() + ' attacks ' + target.name + ' for no damage!'
-            messages.append(msg)
+            message(self.owner.name.capitalize() + ' attacks ' + target.name + ' for no damage!',
+                    color=libtcod.darker_yellow)
 
 
 class BasicMonster:
@@ -335,7 +338,7 @@ class ConfusedMonster:
             self.num_turns -= 1
         else:
             self.owner.AI = self.old_AI
-            message = 'The ' + self.owner.name + ' is no longer confused.'
+            message('The ' + self.owner.name + ' is no longer confused.', libtcod.darker_yellow)
 
 
 class Object:
@@ -442,8 +445,7 @@ class Item:
     def use(self):
         # just call the "use_function" if it is defined
         if self.use_function is None:
-            message = 'The ' + self.owner.name + ' cannot be used.'
-            messages.append(message)
+            message('The ' + self.owner.name + ' cannot be used.', color=libtcod.orange)
         else:
             if self.use_function() != 'cancelled':
                 inventory.remove(self.owner)  # destroy after use, unless it was cancelled for some reason
@@ -452,37 +454,31 @@ class Item:
     def pick_up(self):
         # add to the player's inventory and remove from the map
         if len(inventory) >= 26:
-            message = 'Your inventory is full, cannot pick up ' + self.owner.name + '.'
-            messages.append(message)
+            message('Your inventory is full, cannot pick up ' + self.owner.name + '.', color=libtcod.orange)
         else:
             inventory.append(self.owner)
             objects.remove(self.owner)
-            message = 'You picked up a ' + self.owner.name + '!'
-            messages.append(message)
+            message('You picked up a ' + self.owner.name + '!', color=libtcod.green)
 
 
 def cast_heal():
     # heal the player
     if player.fighter.hp == player.fighter.max_hp:
-        message = 'You are already at full health.'
-        messages.append(message)
+        message('You are already at full health.', color=libtcod.orange)
         return 'cancelled'
 
-    message = 'Your wounds start to feel better!'
-    messages.append(message)
+    message('Your wounds start to feel better!', color=libtcod.light_green)
     player.fighter.heal(HEAL_AMOUNT)
 
 
 def cast_lightning():
     monster = closest_monster(LIGHTNING_RANGE)
     if monster is None:
-        message = 'No enemy is close enough to strike.'
-        messages.append(message)
+        message('No enemy is close enough to strike.')
         return 'cancelled'
 
-    message = 'A lightning bolt strikes the ' + monster.name + ' with a loud thunder! The damage is ' + str(
-        LIGHTNING_DAMAGE) + ' hit points.'
-    messages.append(message)
+    message('A lightning bolt strikes the ' + monster.name + ' with a loud thunder! The damage is ' + str(
+        LIGHTNING_DAMAGE) + ' hit points.', color=libtcod.lightest_red)
     monster.fighter.take_damage(LIGHTNING_DAMAGE)
 
 
@@ -490,32 +486,29 @@ def cast_confuse():
     # find closest enemy in-range and confuse it
     monster = closest_monster(CONFUSE_RANGE)
     if monster is None:
-        message = 'No enemy is close enough to confuse.'
-        messages.append(message)
+        message('No enemy is close enough to confuse.', color=libtcod.orange)
         return 'cancelled'
     # replace the monster's AI with a "confused" one; after some turns the original AI will be restored
     old_AI = monster.AI
     monster.AI = ConfusedMonster(old_AI)
     monster.AI.owner = monster
-    message = 'The eyes of the ' + monster.name + ' look vancant, confused even. The monster begins to stumble around.'
-    messages.append(message)
+    message('The eyes of the ' + monster.name + ' look vacant, confused even. The monster begins to stumble around.')
 
 
 def cast_fireball():
     # ask the player for a target tile to throw a fireball at
-    message = 'Left-click a target tile for the fireball. Escape or right-click to cancel targeting.'
-    messages.append(message)
+    message('Left-click a target tile for the fireball. Escape or right-click to cancel targeting.', color=libtcod.cyan)
 
     (x, y) = target_tile()
     if x is None:
         return 'cancelled'
 
-    message = 'The fireball explodes, burning everything within a ' + str(FIREBALL_RADIUS) + ' tile radius!'
+    message('The fireball explodes, burning everything within a ' + str(FIREBALL_RADIUS) + ' tile radius!')
 
     for obj in objects:
         if obj.distance_to_tile(x, y) < FIREBALL_RADIUS and obj.fighter:
-            message = 'The ' + obj.name + ' gets burned for ' + str(FIREBALL_DAMAGE) + ' hit points.'
-            messages.append(message)
+            message('The ' + obj.name + ' gets burned for ' + str(FIREBALL_DAMAGE) + ' hit points.',
+                    color=libtcod.lightest_red)
             obj.fighter.take_damage(FIREBALL_DAMAGE)
 
 
@@ -573,8 +566,8 @@ def new_game():
     inventory = []
 
     # welcome message
-    msg = 'Welcome back to <game>, player ' + player.name + '! Prepare to die!'
-    messages = [msg]
+    messages = []
+    message('Welcome back to <game>, player ' + player.name + '! Prepare to die!')
 
 
 def player_move_or_attack(dx, dy):
@@ -689,11 +682,14 @@ def draw_messages_panel():
     libtcod.console_set_default_foreground(msg_con, old_foreground_color)
 
     # print the last many messages to the message console that will fit in the console.
-    for i, msg in enumerate(reversed(messages)):
+    for i, msg_and_color in enumerate(reversed(messages)):
         if (i + 1) > MSG_PANEL_HEIGHT:
             break
         else:
+            msg, color = msg_and_color
+            libtcod.console_set_default_foreground(msg_con, color)
             libtcod.console_print(msg_con, 1, (i + 1), msg)
+            libtcod.console_set_default_foreground(msg_con, old_foreground_color)
 
 
 def draw_stat_panel():
@@ -802,6 +798,7 @@ def initialize_fov():
         for x in xrange(MAP_WIDTH):
             libtcod.map_set_properties(fov_map, x, y, not tile_map[x][y].block_sight, not tile_map[x][y].blocked)
 
+
 ################################
 # INITIALIZATION AND GAME LOOP #
 ################################
@@ -832,6 +829,7 @@ def play_game():
             for object in objects:
                 if object.AI:
                     object.AI.take_turn()
+
 
 new_game()
 play_game()
