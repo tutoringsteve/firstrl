@@ -38,6 +38,9 @@ LIGHTNING_DAMAGE = 20
 CONFUSE_NUM_TURNS = 10
 CONFUSE_RANGE = 8
 
+FIREBALL_RADIUS = 3
+FIREBALL_DAMAGE = 12
+
 fov_recompute = True
 
 LIMIT_FPS = 20
@@ -146,6 +149,29 @@ def is_blocked(x, y):
     return False
 
 
+def target_tile(max_range=None):
+    # return the position of a tile left-clicked in player's FOV (optionally with a further restricted range),
+    # or (None, None) the user cancels targeting.
+    global key, mouse
+    while True:
+        # Stop showing inventory and continues to render screen while targeting
+        libtcod.console_flush()
+        clear_all()
+        libtcod.sys_check_for_event(libtcod.EVENT_KEY_PRESS | libtcod.EVENT_MOUSE, key, mouse)
+        draw_all()
+
+        (x, y) = (mouse.cx - STAT_PANEL_WIDTH, mouse.cy)
+
+        if mouse.lbutton_pressed and libtcod.map_is_in_fov(fov_map, x, y) and \
+                (max_range is None or player.distance_to_tile(x, y) <= max_range):
+            return (x, y)
+
+        if mouse.rbutton_pressed or key.vk == libtcod.KEY_ESCAPE:
+            message = 'Targeting cancelled by player.'
+            messages.append(message)
+            return (None, None)
+
+
 def create_h_tunnel(x1, x2, y):
     x1, x2 = min(x1, x2), max(x1, x2)
     for x in xrange(x1, x2 + 1):
@@ -207,7 +233,7 @@ def closest_monster(max_range):
     for object in objects:
         if object.fighter and not object == player and libtcod.map_is_in_fov(fov_map, object.x, object.y):
             # calculate distance between this object and the player
-            dist = player.distance_to(object)
+            dist = player.distance_to_object(object)
             if dist < closest_dist:
                 closest_enemy = object
                 closest_dist = dist
@@ -228,7 +254,7 @@ def player_death(player):
 def monster_death(monster):
     global messages
     # transform monster into corpse! It no longer has AI and no longer blocks
-    msg = monster.name.capitalize() + 'has been killed!'
+    msg = monster.name.capitalize() + ' has been killed!'
     messages.append(msg)
     monster.char = '%'
     monster.color = libtcod.dark_red
@@ -289,7 +315,7 @@ class BasicMonster:
 
             # move towards player if far away
             # close enough, attack! (if the player is still alive.)
-            if monster.distance_to(player) >= 2:
+            if monster.distance_to_object(player) >= 2:
                 monster.move_towards(player.x, player.y)
             elif player.fighter.hp > 0:
                 monster.fighter.attack(player)
@@ -309,6 +335,7 @@ class ConfusedMonster:
         else:
             self.owner.AI = self.old_AI
             message = 'The ' + self.owner.name + ' is no longer confused.'
+
 
 class Object:
     # this is a generic object: the player, a monster, an item, the stairs...
@@ -339,10 +366,15 @@ class Object:
             self.x += dx
             self.y += dy
 
-    def distance_to(self, other):
+    def distance_to_object(self, other):
         # return the distance to another Object
         dx = other.x - self.x
         dy = other.y - self.y
+        return math.sqrt(dx ** 2 + dy ** 2)
+
+    def distance_to_tile(self, x, y):
+        dx = x - self.x
+        dy = y - self.y
         return math.sqrt(dx ** 2 + dy ** 2)
 
     def move_towards(self, target_x, target_y):
@@ -468,6 +500,24 @@ def cast_confuse():
     messages.append(message)
 
 
+def cast_fireball():
+    # ask the player for a target tile to throw a fireball at
+    message = 'Left-click a target tile for the fireball. Escape or right-click to cancel targeting.'
+    messages.append(message)
+
+    (x, y) = target_tile()
+    if x is None:
+        return 'cancelled'
+
+    message = 'The fireball explodes, burning everything within a ' + str(FIREBALL_RADIUS) + ' tile radius!'
+
+    for obj in objects:
+        if obj.distance_to_tile(x, y) < FIREBALL_RADIUS and obj.fighter:
+            message = 'The ' + obj.name + ' gets burned for ' + str(FIREBALL_DAMAGE) + ' hit points.'
+            messages.append(message)
+            obj.fighter.take_damage(FIREBALL_DAMAGE)
+
+
 def place_items(room):
     # choose random number of items
     num_items = libtcod.random_get_int(0, 0, MAX_ROOM_ITEMS)
@@ -478,19 +528,25 @@ def place_items(room):
         y = libtcod.random_get_int(0, room.y1 + 1, room.y2 - 1)
         if not is_blocked(x, y):
             dice = libtcod.random_get_int(0, 0, 100)
-            if dice < 20:
+            if dice < 10:
                 # healing potion
                 item_component = Item(use_function=cast_heal)
                 item = Object(x, y, '!', 'healing potion', libtcod.violet, item=item_component)
                 objects.append(item)
                 # make sure items are drawn underneath the player and monsters
                 item.send_to_back()
-            elif dice < 40:
+            elif dice < 10 + 10:
                 # scroll of lightning
                 item_component = Item(use_function=cast_lightning)
                 item = Object(x, y, '?', 'scroll of lightning bolt', libtcod.light_yellow, item=item_component)
                 objects.append(item)
                 # make sure items are drawn underneath the player and monsters
+                item.send_to_back()
+            elif dice < 10 + 10 + 70:
+                # scroll of fireball
+                item_component = Item(use_function=cast_fireball)
+                item = Object(x, y, '?', 'scroll of fireball', libtcod.dark_orange, item=item_component)
+                objects.append(item)
                 item.send_to_back()
             else:
                 # create a scroll of confusion
@@ -499,6 +555,7 @@ def place_items(room):
                 objects.append(item)
                 # make sure items are drawn underneath the player and monsters
                 item.send_to_back()
+
 
 fighter_component = Fighter(hp=30, defense=2, power=5, death_function=player_death)
 player = Object(25, 23, '@', 'The Player <You>', libtcod.white, blocks=True, fighter=fighter_component)
