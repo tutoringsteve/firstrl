@@ -41,8 +41,6 @@ CONFUSE_RANGE = 8
 FIREBALL_RADIUS = 3
 FIREBALL_DAMAGE = 12
 
-fov_recompute = True
-
 LIMIT_FPS = 20
 
 color_dark_wall = libtcod.Color(r=0, g=0, b=100)
@@ -64,7 +62,10 @@ class Tile:
 
 
 def make_map():
-    global tile_map
+    global tile_map, objects
+
+    objects = [player]
+
     rooms = []
     num_rooms = 0
 
@@ -557,14 +558,23 @@ def place_items(room):
                 item.send_to_back()
 
 
-fighter_component = Fighter(hp=30, defense=2, power=5, death_function=player_death)
-player = Object(25, 23, '@', 'The Player <You>', libtcod.white, blocks=True, fighter=fighter_component)
-objects = [player]
+def new_game():
+    global player, inventory, messages, game_state, player_action
 
-inventory = []
+    # create the player Object
+    fighter_component = Fighter(hp=30, defense=2, power=5, death_function=player_death)
+    player = Object(25, 23, '@', 'The Player <You>', libtcod.white, blocks=True, fighter=fighter_component)
 
-msg = 'Welcome back to <game>, player ' + player.name + '! Prepare to die!'
-messages = [msg]
+    # generate map without (yet) drawing it to screen
+    make_map()
+    initialize_fov()
+
+    game_state = 'playing'
+    inventory = []
+
+    # welcome message
+    msg = 'Welcome back to <game>, player ' + player.name + '! Prepare to die!'
+    messages = [msg]
 
 
 def player_move_or_attack(dx, dy):
@@ -577,7 +587,7 @@ def player_move_or_attack(dx, dy):
     # find an attackable object at (x, y)
     target = None
     for object in objects:
-        if (object.x, object.y) == (x, y):
+        if (object.x, object.y) == (x, y) and object.fighter:
             target = object
             break
 
@@ -782,37 +792,46 @@ def get_names_under_mouse():
     return names.capitalize()
 
 
-make_map()
+def initialize_fov():
+    global fov_recompute, fov_map
+    fov_recompute = True
 
-fov_map = libtcod.map_new(MAP_WIDTH, MAP_HEIGHT)
-for y in xrange(MAP_HEIGHT):
-    for x in xrange(MAP_WIDTH):
-        libtcod.map_set_properties(fov_map, x, y, not tile_map[x][y].block_sight, not tile_map[x][y].blocked)
+    # create fov map based on current tile_map (which must already be generated
+    fov_map = libtcod.map_new(MAP_WIDTH, MAP_HEIGHT)
+    for y in xrange(MAP_HEIGHT):
+        for x in xrange(MAP_WIDTH):
+            libtcod.map_set_properties(fov_map, x, y, not tile_map[x][y].block_sight, not tile_map[x][y].blocked)
 
 ################################
 # INITIALIZATION AND GAME LOOP #
 ################################
 
-game_state = 'playing'
-player_action = None
 
-mouse = libtcod.Mouse()
-key = libtcod.Key()
+def play_game():
+    global key, mouse, player_action
 
-while not libtcod.console_is_window_closed():
+    player_action = None
 
-    libtcod.sys_check_for_event(libtcod.EVENT_KEY_PRESS | libtcod.EVENT_MOUSE, key, mouse)
+    mouse = libtcod.Mouse()
+    key = libtcod.Key()
 
-    draw_all()
-    libtcod.console_flush()
-    clear_all()
+    while not libtcod.console_is_window_closed():
 
-    # handle keys and exit game if needed
-    player_action = handle_keys()
-    if player_action == 'exit':
-        break
+        libtcod.sys_check_for_event(libtcod.EVENT_KEY_PRESS | libtcod.EVENT_MOUSE, key, mouse)
 
-    if game_state == 'playing' and player_action != 'didnt-take-turn':
-        for object in objects:
-            if object.AI:
-                object.AI.take_turn()
+        draw_all()
+        libtcod.console_flush()
+        clear_all()
+
+        # handle keys and exit game if needed
+        player_action = handle_keys()
+        if player_action == 'exit':
+            break
+
+        if game_state == 'playing' and player_action != 'didnt-take-turn':
+            for object in objects:
+                if object.AI:
+                    object.AI.take_turn()
+
+new_game()
+play_game()
