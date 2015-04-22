@@ -458,7 +458,16 @@ class Item:
         else:
             inventory.append(self.owner)
             objects.remove(self.owner)
-            message('You picked up a ' + self.owner.name + '!', color=libtcod.green)
+            message('You picked up a ' + self.owner.name + '!', color=libtcod.cyan)
+
+    def drop(self):
+        # remove from player's inventory and add to floor underneath the player.
+        (self.owner.x, self.owner.y) = (player.x, player.y)
+        inventory.remove(self.owner)
+        objects.append(self.owner)
+        #self.owner.send_to_back()
+        message('You dropped a ' + self.owner.name + ' on the floor beneath you.', color=libtcod.cyan)
+
 
 
 def cast_heal():
@@ -618,7 +627,7 @@ def handle_keys():
 
             if key_char == 'g':
                 # pick up an item
-                for object in objects:
+                for object in reversed(objects):
                     if (player.x, player.y) == (object.x, object.y) and object.item:
                         object.item.pick_up()
                         break
@@ -628,6 +637,12 @@ def handle_keys():
                 chosen_item = inventory_menu('Press the key next to an item to use it, or any other to cancel.\n')
                 if chosen_item is not None:
                     chosen_item.use()
+
+            if key_char == 'd':
+                # show the inventory; if an item is selected it, drop it onto the floor (removing it from the inventory)
+                chosen_item = inventory_menu('Press the key next to an item to drop it, or any other to cancel.\n')
+                if chosen_item is not None:
+                    chosen_item.drop()
 
             return 'didnt-take-turn'
 
@@ -670,8 +685,9 @@ def draw_map_panel():
 
     for object in objects:
         visible = libtcod.map_is_in_fov(fov_map, object.x, object.y)
-        if visible:
+        if visible and object is not player:
             object.draw()
+    player.draw()
 
 
 def draw_messages_panel():
