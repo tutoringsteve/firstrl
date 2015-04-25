@@ -3,6 +3,7 @@ __author__ = "Steven Sarasin <tutoringsteve@gmail.com>"
 import libtcodpy as libtcod
 import math
 import textwrap
+import shelve
 
 # size of the map
 MAP_WIDTH = 80
@@ -408,6 +409,34 @@ class Object:
         objects.insert(0, self)
 
 
+def save_game():
+    # open a new empty shelve (possibly overwriting an old one)
+    file = shelve.open('savegame', 'n')
+    file['tile_map'] = tile_map
+    file['objects'] = objects
+    file['player_index'] = objects.index(player)
+    file['inventory'] = inventory
+    file['messages'] = messages
+    file['game_state'] = game_state
+    file.close()
+
+
+def load_game():
+    # open the previously saved shelve and load the game data
+    global tile_map, objects, player, inventory, messages, game_state
+
+    file = shelve.open('savegame', 'r')
+    tile_map = file['tile_map']
+    objects = file['objects']
+    player = objects[file['player_index']]
+    inventory = file['inventory']
+    messages = file['messages']
+    game_state = file['game_state']
+    file.close()
+
+    initialize_fov()
+
+
 def place_objects(room):
     # choose random number of monsters
     num_monsters = libtcod.random_get_int(0, 0, MAX_ROOM_MONSTERS)
@@ -731,7 +760,8 @@ def draw_stat_panel():
                                ("%c" + get_names_under_mouse() + "%c") % (libtcod.COLCTRL_2, libtcod.COLCTRL_STOP))
 
 
-def menu(header, options, width):
+def menu(header, options, width, x=-1, y=-1):
+    global key
     if len(options) > 26:
         raise ValueError('Cannot have a menu with more than 26 options (a to z).')
 
@@ -756,12 +786,15 @@ def menu(header, options, width):
         letter_index += 1
 
     # blit contents of "window" to the root console, right-aligning the "window"
-    x = STAT_PANEL_WIDTH + SCREEN_WIDTH - width
-    y = 0
+    if x == -1:
+        x = STAT_PANEL_WIDTH + SCREEN_WIDTH - width
+    if y == -1:
+        y = 0
     libtcod.console_blit(window, 0, 0, width, height, 0, x, y, 1.0, 0.7)
 
     libtcod.console_flush()
     key = libtcod.console_wait_for_keypress(True)
+
     print chr(key.c)
     index = key.c - ord('a')
     if (index >= 0) and (index < len(options)):
@@ -793,6 +826,13 @@ def clear_all():
     libtcod.console_clear(stat_con)
 
 
+def clear_all_consoles():
+    libtcod.console_clear(msg_con)
+    libtcod.console_clear(stat_con)
+    libtcod.console_clear(con)
+    libtcod.console_clear(0)
+
+
 def get_names_under_mouse():
     # return a string with the names of all objects under the mouse
     (x, y) = (mouse.cx - STAT_PANEL_WIDTH, mouse.cy)
@@ -814,6 +854,7 @@ def initialize_fov():
         for x in xrange(MAP_WIDTH):
             libtcod.map_set_properties(fov_map, x, y, not tile_map[x][y].block_sight, not tile_map[x][y].blocked)
 
+    libtcod.console_clear(con)
 
 ################################
 # INITIALIZATION AND GAME LOOP #
@@ -839,6 +880,7 @@ def play_game():
         # handle keys and exit game if needed
         player_action = handle_keys()
         if player_action == 'exit':
+            save_game()
             break
 
         if game_state == 'playing' and player_action != 'didnt-take-turn':
@@ -847,5 +889,29 @@ def play_game():
                     object.AI.take_turn()
 
 
-new_game()
-play_game()
+def main_menu():
+    img = libtcod.image_load('menu_background.png')
+
+    while not libtcod.console_is_window_closed():
+        clear_all_consoles()
+        libtcod.image_blit_2x(img, 0, 0, 0)
+
+        choice = menu('', ['Play a new game', 'Continue last game', 'Quit'], width=24, x=4, y=2)
+        if key.vk == libtcod.KEY_ENTER and (key.lalt or key.ralt):
+            # Alt + Enter: toggle full screen
+            libtcod.console_set_fullscreen(not libtcod.console_is_fullscreen())
+
+        if choice == 0:
+            new_game()
+            play_game()
+        elif choice == 1:
+            try:
+                load_game()
+            except:
+                menu('\n No saved game to load. \n', [], width=24, x=((STAT_PANEL_WIDTH + SCREEN_WIDTH - 24)/2), y=2)
+                continue
+            play_game()
+        elif choice == 2:
+            break
+
+main_menu()
