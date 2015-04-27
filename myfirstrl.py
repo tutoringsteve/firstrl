@@ -28,6 +28,11 @@ MAX_ROOMS = 26
 MAX_ROOM_MONSTERS = 3
 MAX_ROOM_ITEMS = 2
 
+MAX_UPSTAIRS = 3
+MIN_UPSTAIRS = 3
+MAX_DOWNSTAIRS = 1
+MIN_DOWNSTAIRS = 1
+
 FOV_ALGO = 0
 FOV_LIGHT_WALLS = True
 TORCH_RADIUS = 10
@@ -63,13 +68,29 @@ class Tile:
         self.block_sight = block_sight
 
 
+def change_depth(depth_to_change_by):
+    global current_depth
+
+    if depth_to_change_by + current_depth < 0:
+        current_depth = 0
+    else:
+        current_depth += depth_to_change_by
+
+    libtcod.console_clear(con)
+    make_map()
+    initialize_fov()
+    libtcod.console_flush()
+
 def make_map():
     global tile_map, objects
+    global num_downstairs, num_upstairs
 
     objects = [player]
 
     rooms = []
     num_rooms = 0
+    num_downstairs = 0
+    num_upstairs = 0
 
     # fill map with "unblocked" tiles
     tile_map = [[Tile(blocked=True) for y in xrange(MAP_HEIGHT)] for x in xrange(MAP_WIDTH)]
@@ -116,6 +137,8 @@ def make_map():
                     create_h_tunnel(prev_x, new_x, new_y)
             rooms.append(new_room)
             num_rooms += 1
+
+    place_stairs(rooms)
 
 
 def midpoint(x1, y1, x2, y2):
@@ -415,6 +438,7 @@ def save_game():
     file['tile_map'] = tile_map
     file['objects'] = objects
     file['player_index'] = objects.index(player)
+    file['current_depth'] = current_depth
     file['inventory'] = inventory
     file['messages'] = messages
     file['game_state'] = game_state
@@ -423,9 +447,10 @@ def save_game():
 
 def load_game():
     # open the previously saved shelve and load the game data
-    global tile_map, objects, player, inventory, messages, game_state
+    global tile_map, objects, player, inventory, messages, game_state, current_depth
 
     file = shelve.open('savegame', 'r')
+    current_depth = file['current_depth']
     tile_map = file['tile_map']
     objects = file['objects']
     player = objects[file['player_index']]
@@ -496,7 +521,6 @@ class Item:
         objects.append(self.owner)
         #self.owner.send_to_back()
         message('You dropped a ' + self.owner.name + ' on the floor beneath you.', color=libtcod.cyan)
-
 
 
 def cast_heal():
@@ -589,15 +613,48 @@ def place_items(room):
                 item.send_to_back()
 
 
+def place_stairs(rooms):
+    num_upstairs = 0
+    num_downstairs = 0
+    downstairs = libtcod.random_get_int(0, MIN_DOWNSTAIRS, MAX_DOWNSTAIRS)
+    upstairs = libtcod.random_get_int(0, MIN_UPSTAIRS, MAX_UPSTAIRS)
+    while num_downstairs < downstairs or num_upstairs < upstairs:
+        random_index = libtcod.random_get_int(0, 0, len(rooms)-1)
+        room = rooms[random_index]
+        x = libtcod.random_get_int(0, room.x1 + 1, room.x2 - 1)
+        y = libtcod.random_get_int(0, room.y1 + 1, room.y2 - 1)
+        if (not is_blocked(x, y)) and (libtcod.console_get_char(con, x, y) not in ('<', '>')):
+            dice = libtcod.random_get_int(0, 0, 100)
+            if dice < 50 and num_upstairs < upstairs:
+                stair = Object(x, y, '<', 'stairs', libtcod.white)
+                objects.append(stair)
+                stair.send_to_back()
+                num_upstairs += 1
+                print '(x, y): ' + str(x) + ', ' + str(y) + ' and num_upstairs: ' + str(num_upstairs) + ' and num_downstairs: ' + str(num_downstairs)
+            elif num_downstairs < downstairs:
+                stair = Object(x, y, '>', 'stairs', libtcod.white)
+                objects.append(stair)
+                stair.send_to_back()
+                num_downstairs += 1
+                print '(x, y): ' + str(x) + ', ' + str(y) + ' and num_upstairs: ' + str(num_upstairs) + ' and num_downstairs: ' + str(num_downstairs)
+            x = libtcod.random_get_int(0, room.x1 + 1, room.x2 - 1)
+            y = libtcod.random_get_int(0, room.y1 + 1, room.y2 - 1)
+
+
 def new_game():
-    global player, inventory, messages, game_state, player_action
+    global player, inventory, messages, game_state, player_action, current_depth
 
     # create the player Object
     fighter_component = Fighter(hp=30, defense=2, power=5, death_function=player_death)
     player = Object(25, 23, '@', 'The Player <You>', libtcod.white, blocks=True, fighter=fighter_component)
 
+    current_depth = 0
+
     # generate map without (yet) drawing it to screen
     make_map()
+    return_stairs = Object(player.x, player.y, '<', 'stairs', libtcod.white)
+    objects.append(return_stairs)
+    return_stairs.send_to_back()
     initialize_fov()
 
     game_state = 'playing'
@@ -661,6 +718,26 @@ def handle_keys():
                         object.item.pick_up()
                         break
 
+            if key_char == '>':
+                # go downstairs
+                for object in objects:
+                    if (player.x, player.y) == (object.x, object.y) and object.name == 'stairs' and object.char == '>':
+                        change_depth(-1)
+                        break
+                return_stairs = Object(player.x, player.y, '<', 'stairs', libtcod.white)
+                objects.append(return_stairs)
+                return_stairs.send_to_back()
+
+            if key_char == '<':
+                # go downstairs
+                for object in objects:
+                    if (player.x, player.y) == (object.x, object.y) and object.name == 'stairs' and object.char == '<':
+                        change_depth(1)
+                        break
+                return_stairs = Object(player.x, player.y, '>', 'stairs', libtcod.white)
+                objects.append(return_stairs)
+                return_stairs.send_to_back()
+
             if key_char == 'i':
                 # show the inventory; if an item is selected, use it
                 chosen_item = inventory_menu('Press the key next to an item to use it, or any other to cancel.\n')
@@ -685,6 +762,8 @@ def draw_all():
     libtcod.console_blit(stat_con, 0, 0, STAT_PANEL_WIDTH, STAT_PANEL_HEIGHT, 0, 0, 0)
     libtcod.console_blit(con, 0, 0, MAP_WIDTH, MAP_HEIGHT, 0, STAT_PANEL_WIDTH, 0)
     libtcod.console_blit(msg_con, 0, 0, MSG_PANEL_WIDTH, MSG_PANEL_HEIGHT, 0, 0, MAP_HEIGHT)
+
+    draw_target_tile_highlighter()
 
 
 def draw_map_panel():
@@ -755,9 +834,17 @@ def draw_stat_panel():
                libtcod.darker_green, libtcod.dark_red)
     libtcod.console_print(stat_con, 1, 5, "Mouse: %c(%s, %s)%c" % (
         libtcod.COLCTRL_1, mouse.cx - STAT_PANEL_WIDTH, mouse.cy, libtcod.COLCTRL_STOP))
-    libtcod.console_print(stat_con, 1, 6, "Mouse %ctarget%c:" % (libtcod.COLCTRL_2, libtcod.COLCTRL_STOP))
-    libtcod.console_print_rect(stat_con, 1, 7, STAT_PANEL_WIDTH - 2, 0,
+    libtcod.console_print(stat_con, 1, 7, "Current depth: " + str(current_depth))
+    libtcod.console_print(stat_con, 1, 10, "Mouse %ctarget%c:" % (libtcod.COLCTRL_2, libtcod.COLCTRL_STOP))
+    libtcod.console_print_rect(stat_con, 1, 11, STAT_PANEL_WIDTH - 2, 0,
                                ("%c" + get_names_under_mouse() + "%c") % (libtcod.COLCTRL_2, libtcod.COLCTRL_STOP))
+
+
+def draw_target_tile_highlighter():
+    if (mouse.cx - STAT_PANEL_WIDTH >= 0) and (mouse.cy < MAP_HEIGHT):
+        target = libtcod.console_new(1, 1)
+        libtcod.console_fill_background(target, (220,), (220,), (220,))
+        libtcod.console_blit(target, 0, 0, 1, 1, 0, mouse.cx, mouse.cy, .10, .50)
 
 
 def menu(header, options, width, x=-1, y=-1):
@@ -838,6 +925,7 @@ def get_names_under_mouse():
     (x, y) = (mouse.cx - STAT_PANEL_WIDTH, mouse.cy)
     names = [obj.name for obj in objects if
              (obj.x == x and obj.y == y and libtcod.map_is_in_fov(fov_map, obj.x, obj.y))]
+
     names = set(names)
     names = ', '.join(names)
 
