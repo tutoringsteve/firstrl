@@ -81,6 +81,7 @@ def change_depth(depth_to_change_by):
     initialize_fov()
     libtcod.console_flush()
 
+
 def make_map():
     global tile_map, objects
     global num_downstairs, num_upstairs
@@ -285,6 +286,7 @@ def monster_death(monster):
     # transform monster into corpse! It no longer has AI and no longer blocks
     message(monster.name.capitalize() + ' has been killed!', color=libtcod.green)
     monster.char = '%'
+    monster.always_visible = True
     monster.color = libtcod.dark_red
     monster.blocks = False
     monster.fighter = None
@@ -368,13 +370,14 @@ class ConfusedMonster:
 class Object:
     # this is a generic object: the player, a monster, an item, the stairs...
     # it's always represented by a character on screen.
-    def __init__(self, x, y, char, name, color, blocks=False, fighter=None, AI=None, item=None):
+    def __init__(self, x, y, char, name, color, blocks=False, always_visible=False, fighter=None, AI=None, item=None):
         self.x = x
         self.y = y
         self.char = char
         self.name = name
         self.color = color
         self.blocks = blocks
+        self.always_visible = always_visible
 
         self.fighter = fighter
         if self.fighter:
@@ -519,7 +522,7 @@ class Item:
         (self.owner.x, self.owner.y) = (player.x, player.y)
         inventory.remove(self.owner)
         objects.append(self.owner)
-        #self.owner.send_to_back()
+        # self.owner.send_to_back()
         message('You dropped a ' + self.owner.name + ' on the floor beneath you.', color=libtcod.cyan)
 
 
@@ -587,27 +590,31 @@ def place_items(room):
             if dice < 10:
                 # healing potion
                 item_component = Item(use_function=cast_heal)
-                item = Object(x, y, '!', 'healing potion', libtcod.violet, item=item_component)
+                item = Object(x, y, '!', 'healing potion', always_visible=True, color=libtcod.violet,
+                              item=item_component)
                 objects.append(item)
                 # make sure items are drawn underneath the player and monsters
                 item.send_to_back()
             elif dice < 10 + 10:
                 # scroll of lightning
                 item_component = Item(use_function=cast_lightning)
-                item = Object(x, y, '?', 'scroll of lightning bolt', libtcod.light_yellow, item=item_component)
+                item = Object(x, y, '?', 'scroll of lightning bolt', always_visible=True, color=libtcod.light_yellow,
+                              item=item_component)
                 objects.append(item)
                 # make sure items are drawn underneath the player and monsters
                 item.send_to_back()
             elif dice < 10 + 10 + 70:
                 # scroll of fireball
                 item_component = Item(use_function=cast_fireball)
-                item = Object(x, y, '?', 'scroll of fireball', libtcod.dark_orange, item=item_component)
+                item = Object(x, y, '?', 'scroll of fireball', always_visible=True, color=libtcod.dark_orange,
+                              item=item_component)
                 objects.append(item)
                 item.send_to_back()
             else:
                 # create a scroll of confusion
                 item_component = Item(use_function=cast_confuse)
-                item = Object(x, y, '?', 'scroll of confusion', libtcod.darker_red, item=item_component)
+                item = Object(x, y, '?', 'scroll of confusion', always_visible=True, color=libtcod.darker_red,
+                              item=item_component)
                 objects.append(item)
                 # make sure items are drawn underneath the player and monsters
                 item.send_to_back()
@@ -619,24 +626,26 @@ def place_stairs(rooms):
     downstairs = libtcod.random_get_int(0, MIN_DOWNSTAIRS, MAX_DOWNSTAIRS)
     upstairs = libtcod.random_get_int(0, MIN_UPSTAIRS, MAX_UPSTAIRS)
     while num_downstairs < downstairs or num_upstairs < upstairs:
-        random_index = libtcod.random_get_int(0, 0, len(rooms)-1)
+        random_index = libtcod.random_get_int(0, 0, len(rooms) - 1)
         room = rooms[random_index]
         x = libtcod.random_get_int(0, room.x1 + 1, room.x2 - 1)
         y = libtcod.random_get_int(0, room.y1 + 1, room.y2 - 1)
         if (not is_blocked(x, y)) and (libtcod.console_get_char(con, x, y) not in ('<', '>')):
             dice = libtcod.random_get_int(0, 0, 100)
             if dice < 50 and num_upstairs < upstairs:
-                stair = Object(x, y, '<', 'stairs', libtcod.white)
+                stair = Object(x, y, '<', 'stairs', always_visible=True, color=libtcod.white)
                 objects.append(stair)
                 stair.send_to_back()
                 num_upstairs += 1
-                print '(x, y): ' + str(x) + ', ' + str(y) + ' and num_upstairs: ' + str(num_upstairs) + ' and num_downstairs: ' + str(num_downstairs)
+                print '(x, y): ' + str(x) + ', ' + str(y) + ' and num_upstairs: ' + str(
+                    num_upstairs) + ' and num_downstairs: ' + str(num_downstairs)
             elif num_downstairs < downstairs:
-                stair = Object(x, y, '>', 'stairs', libtcod.white)
+                stair = Object(x, y, '>', 'stairs', always_visible=True, color=libtcod.white)
                 objects.append(stair)
                 stair.send_to_back()
                 num_downstairs += 1
-                print '(x, y): ' + str(x) + ', ' + str(y) + ' and num_upstairs: ' + str(num_upstairs) + ' and num_downstairs: ' + str(num_downstairs)
+                print '(x, y): ' + str(x) + ', ' + str(y) + ' and num_upstairs: ' + str(
+                    num_upstairs) + ' and num_downstairs: ' + str(num_downstairs)
             x = libtcod.random_get_int(0, room.x1 + 1, room.x2 - 1)
             y = libtcod.random_get_int(0, room.y1 + 1, room.y2 - 1)
 
@@ -646,13 +655,14 @@ def new_game():
 
     # create the player Object
     fighter_component = Fighter(hp=30, defense=2, power=5, death_function=player_death)
-    player = Object(25, 23, '@', 'The Player <You>', libtcod.white, blocks=True, fighter=fighter_component)
+    player = Object(25, 23, '@', 'The Player <You>', always_visible=True, color=libtcod.white, blocks=True,
+                    fighter=fighter_component)
 
     current_depth = 0
 
     # generate map without (yet) drawing it to screen
     make_map()
-    return_stairs = Object(player.x, player.y, '<', 'stairs', libtcod.white)
+    return_stairs = Object(player.x, player.y, '<', 'stairs', always_visible=True, color=libtcod.white)
     objects.append(return_stairs)
     return_stairs.send_to_back()
     initialize_fov()
@@ -724,7 +734,7 @@ def handle_keys():
                     if (player.x, player.y) == (object.x, object.y) and object.name == 'stairs' and object.char == '>':
                         change_depth(-1)
                         break
-                return_stairs = Object(player.x, player.y, '<', 'stairs', libtcod.white)
+                return_stairs = Object(player.x, player.y, '<', 'stairs', always_visible=True, color=libtcod.white)
                 objects.append(return_stairs)
                 return_stairs.send_to_back()
 
@@ -734,7 +744,7 @@ def handle_keys():
                     if (player.x, player.y) == (object.x, object.y) and object.name == 'stairs' and object.char == '<':
                         change_depth(1)
                         break
-                return_stairs = Object(player.x, player.y, '>', 'stairs', libtcod.white)
+                return_stairs = Object(player.x, player.y, '>', 'stairs', always_visible=True, color=libtcod.white)
                 objects.append(return_stairs)
                 return_stairs.send_to_back()
 
@@ -793,7 +803,8 @@ def draw_map_panel():
 
     for object in objects:
         visible = libtcod.map_is_in_fov(fov_map, object.x, object.y)
-        if visible and object is not player:
+        if (visible or (object.always_visible and tile_map[object.x][object.y].explored)) \
+                and object is not player:
             object.draw()
     player.draw()
 
@@ -923,8 +934,9 @@ def clear_all_consoles():
 def get_names_under_mouse():
     # return a string with the names of all objects under the mouse
     (x, y) = (mouse.cx - STAT_PANEL_WIDTH, mouse.cy)
-    names = [obj.name for obj in objects if
-             (obj.x == x and obj.y == y and libtcod.map_is_in_fov(fov_map, obj.x, obj.y))]
+    names = [obj.name for obj in objects if (obj.x, obj.y) == (x, y) and
+             ((obj.always_visible and tile_map[x][y].explored) or
+             libtcod.map_is_in_fov(fov_map, obj.x, obj.y))]
 
     names = set(names)
     names = ', '.join(names)
@@ -943,6 +955,7 @@ def initialize_fov():
             libtcod.map_set_properties(fov_map, x, y, not tile_map[x][y].block_sight, not tile_map[x][y].blocked)
 
     libtcod.console_clear(con)
+
 
 ################################
 # INITIALIZATION AND GAME LOOP #
@@ -996,10 +1009,11 @@ def main_menu():
             try:
                 load_game()
             except:
-                menu('\n No saved game to load. \n', [], width=24, x=((STAT_PANEL_WIDTH + SCREEN_WIDTH - 24)/2), y=2)
+                menu('\n No saved game to load. \n', [], width=24, x=((STAT_PANEL_WIDTH + SCREEN_WIDTH - 24) / 2), y=2)
                 continue
             play_game()
         elif choice == 2:
             break
+
 
 main_menu()
