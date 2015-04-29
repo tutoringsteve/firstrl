@@ -709,6 +709,7 @@ player_move_or_attack_left = partial(player_move_or_attack, -1, 0)
 player_move_or_attack_right = partial(player_move_or_attack, 1, 0)
 player_wait_one_turn = partial(player_move_or_attack, 0, 0)
 
+
 def pickup_item():
     for object in reversed(objects):
         if (player.x, player.y) == (object.x, object.y) and object.item:
@@ -773,8 +774,8 @@ def handle_keys():
                         ord('d'): drop_from_inventory,
                         ord('g'): pickup_item,
                         ord('i'): view_inventory,
-                        ord('>'): use_stairs_up,
-                        ord('<'): use_stairs_down}
+                        ord('<'): use_stairs_up,
+                        ord('>'): use_stairs_down}
 
     keyboard_controls_by_context = {'playing': playing_controls}
 
