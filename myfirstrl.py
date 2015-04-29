@@ -311,9 +311,9 @@ class Fighter:
 
         # check for death and call death function if there is one
         if self.hp <= 0:
-            function = self.death_function
-            if function is not None:
-                function(self.owner)
+            death_function = self.death_function
+            if death_function is not None:
+                death_function(self.owner)
 
     def heal(self, amount):
         # heal by the given amount, without going over the maximum
@@ -495,6 +495,49 @@ def place_objects(room):
     place_items(room)
 
 
+def place_items(room):
+    # choose random number of items
+    num_items = libtcod.random_get_int(0, 0, MAX_ROOM_ITEMS)
+
+    for i in xrange(num_items):
+        # choose random spot for this monster within the given room
+        x = libtcod.random_get_int(0, room.x1 + 1, room.x2 - 1)
+        y = libtcod.random_get_int(0, room.y1 + 1, room.y2 - 1)
+        if not is_blocked(x, y):
+            dice = libtcod.random_get_int(0, 0, 100)
+            if dice < 10:
+                # healing potion
+                item_component = Item(use_function=cast_heal)
+                item = Object(x, y, '!', 'healing potion', always_visible=True, color=libtcod.violet,
+                              item=item_component)
+                objects.append(item)
+                # make sure items are drawn underneath the player and monsters
+                item.send_to_back()
+            elif dice < 10 + 10:
+                # scroll of lightning
+                item_component = Item(use_function=cast_lightning)
+                item = Object(x, y, '?', 'scroll of lightning bolt', always_visible=True, color=libtcod.light_yellow,
+                              item=item_component)
+                objects.append(item)
+                # make sure items are drawn underneath the player and monsters
+                item.send_to_back()
+            elif dice < 10 + 10 + 70:
+                # scroll of fireball
+                item_component = Item(use_function=cast_fireball)
+                item = Object(x, y, '?', 'scroll of fireball', always_visible=True, color=libtcod.dark_orange,
+                              item=item_component)
+                objects.append(item)
+                item.send_to_back()
+            else:
+                # create a scroll of confusion
+                item_component = Item(use_function=cast_confuse)
+                item = Object(x, y, '?', 'scroll of confusion', always_visible=True, color=libtcod.darker_red,
+                              item=item_component)
+                objects.append(item)
+                # make sure items are drawn underneath the player and monsters
+                item.send_to_back()
+
+
 class Item:
     def __init__(self, use_function=None):
         self.use_function = use_function
@@ -575,49 +618,6 @@ def cast_fireball():
             message('The ' + obj.name + ' gets burned for ' + str(FIREBALL_DAMAGE) + ' hit points.',
                     color=libtcod.lightest_red)
             obj.fighter.take_damage(FIREBALL_DAMAGE)
-
-
-def place_items(room):
-    # choose random number of items
-    num_items = libtcod.random_get_int(0, 0, MAX_ROOM_ITEMS)
-
-    for i in xrange(num_items):
-        # choose random spot for this monster within the given room
-        x = libtcod.random_get_int(0, room.x1 + 1, room.x2 - 1)
-        y = libtcod.random_get_int(0, room.y1 + 1, room.y2 - 1)
-        if not is_blocked(x, y):
-            dice = libtcod.random_get_int(0, 0, 100)
-            if dice < 10:
-                # healing potion
-                item_component = Item(use_function=cast_heal)
-                item = Object(x, y, '!', 'healing potion', always_visible=True, color=libtcod.violet,
-                              item=item_component)
-                objects.append(item)
-                # make sure items are drawn underneath the player and monsters
-                item.send_to_back()
-            elif dice < 10 + 10:
-                # scroll of lightning
-                item_component = Item(use_function=cast_lightning)
-                item = Object(x, y, '?', 'scroll of lightning bolt', always_visible=True, color=libtcod.light_yellow,
-                              item=item_component)
-                objects.append(item)
-                # make sure items are drawn underneath the player and monsters
-                item.send_to_back()
-            elif dice < 10 + 10 + 70:
-                # scroll of fireball
-                item_component = Item(use_function=cast_fireball)
-                item = Object(x, y, '?', 'scroll of fireball', always_visible=True, color=libtcod.dark_orange,
-                              item=item_component)
-                objects.append(item)
-                item.send_to_back()
-            else:
-                # create a scroll of confusion
-                item_component = Item(use_function=cast_confuse)
-                item = Object(x, y, '?', 'scroll of confusion', always_visible=True, color=libtcod.darker_red,
-                              item=item_component)
-                objects.append(item)
-                # make sure items are drawn underneath the player and monsters
-                item.send_to_back()
 
 
 def place_stairs(rooms):
@@ -875,12 +875,12 @@ def menu(header, options, width, x=-1, y=-1):
     libtcod.console_print_rect_ex(window, 0, 0, width, height, libtcod.BKGND_NONE, libtcod.LEFT, header)
 
     # print all the options
-    y = header_height
+    # y = header_height
     letter_index = ord('a')
     for option_text in options:
         text = '(' + chr(letter_index) + ')' + option_text
-        libtcod.console_print_ex(window, 0, y, libtcod.BKGND_NONE, libtcod.LEFT, text)
-        y += 1
+        libtcod.console_print_ex(window, 0, header_height, libtcod.BKGND_NONE, libtcod.LEFT, text)
+        header_height += 1
         letter_index += 1
 
     # blit contents of "window" to the root console, right-aligning the "window"
