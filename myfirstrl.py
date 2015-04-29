@@ -1,3 +1,5 @@
+from functools import partial
+
 __author__ = "Steven Sarasin <tutoringsteve@gmail.com>"
 
 import libtcodpy as libtcod
@@ -674,6 +676,10 @@ def new_game():
     messages = []
     message('Welcome back to <game>, player ' + player.name + '! Prepare to die!')
 
+#############
+# KEYBOARD EVENT HANDLING
+#############
+
 
 def player_move_or_attack(dx, dy):
     global fov_recompute
@@ -697,6 +703,54 @@ def player_move_or_attack(dx, dy):
         player.move(dx, dy)
         fov_recompute = True
 
+player_move_or_attack_up = partial(player_move_or_attack, 0, -1)
+player_move_or_attack_down = partial(player_move_or_attack, 0, 1)
+player_move_or_attack_left = partial(player_move_or_attack, -1, 0)
+player_move_or_attack_right = partial(player_move_or_attack, 1, 0)
+
+
+def pickup_item():
+    for object in reversed(objects):
+        if (player.x, player.y) == (object.x, object.y) and object.item:
+            object.item.pick_up()
+            break
+
+
+def drop_from_inventory():
+    # show the inventory; if an item is selected it, drop it onto the floor (removing it from the inventory)
+    chosen_item = inventory_menu('Press the key next to an item to drop it, or any other to cancel.\n')
+    if chosen_item is not None:
+        chosen_item.drop()
+    
+
+def view_inventory():
+    # show the inventory; if an item is selected, use it
+    chosen_item = inventory_menu('Press the key next to an item to use it, or any other to cancel.\n')
+    if chosen_item is not None:
+        chosen_item.use()
+    
+
+def use_stairs_up():
+    # go upstairs
+    for object in objects:
+        if (player.x, player.y) == (object.x, object.y) and object.name == 'stairs' and object.char == '<':
+            change_depth(1)
+            break
+    return_stairs = Object(player.x, player.y, '>', 'stairs', always_visible=True, color=libtcod.white)
+    objects.append(return_stairs)
+    return_stairs.send_to_back()
+    
+
+def use_stairs_down():
+    # go downstairs
+    for object in objects:
+        if (player.x, player.y) == (object.x, object.y) and object.name == 'stairs' and object.char == '>':
+            change_depth(-1)
+            break
+    return_stairs = Object(player.x, player.y, '<', 'stairs', always_visible=True, color=libtcod.white)
+    objects.append(return_stairs)
+    return_stairs.send_to_back()
+    
 
 def handle_keys():
     global key
@@ -707,61 +761,32 @@ def handle_keys():
     elif key.vk == libtcod.KEY_ESCAPE:
         return 'exit'
 
+    branch = {libtcod.KEY_UP: player_move_or_attack_up,
+              libtcod.KEY_KP8: player_move_or_attack_up,
+              libtcod.KEY_DOWN: player_move_or_attack_down,
+              libtcod.KEY_KP2: player_move_or_attack_down,
+              libtcod.KEY_LEFT: player_move_or_attack_left,
+              libtcod.KEY_KP4: player_move_or_attack_left,
+              libtcod.KEY_RIGHT: player_move_or_attack_right,
+              libtcod.KEY_KP6: player_move_or_attack_right,
+              ord('d'): drop_from_inventory,
+              ord('g'): pickup_item,
+              ord('i'): view_inventory,
+              ord('>'): use_stairs_up,
+              ord('<'): use_stairs_down}
+
     if game_state == 'playing':
-        # movement keys
-        if key.vk == libtcod.KEY_UP:
-            player_move_or_attack(0, -1)
-        elif key.vk == libtcod.KEY_DOWN:
-            player_move_or_attack(0, 1)
-        elif key.vk == libtcod.KEY_LEFT:
-            player_move_or_attack(-1, 0)
-        elif key.vk == libtcod.KEY_RIGHT:
-            player_move_or_attack(1, 0)
+        if key.vk in branch:
+            branch[key.vk]()
         else:
-            # test for other keys
-            key_char = chr(key.c)
-
-            if key_char == 'g':
-                # pick up an item
-                for object in reversed(objects):
-                    if (player.x, player.y) == (object.x, object.y) and object.item:
-                        object.item.pick_up()
-                        break
-
-            if key_char == '>':
-                # go downstairs
-                for object in objects:
-                    if (player.x, player.y) == (object.x, object.y) and object.name == 'stairs' and object.char == '>':
-                        change_depth(-1)
-                        break
-                return_stairs = Object(player.x, player.y, '<', 'stairs', always_visible=True, color=libtcod.white)
-                objects.append(return_stairs)
-                return_stairs.send_to_back()
-
-            if key_char == '<':
-                # go downstairs
-                for object in objects:
-                    if (player.x, player.y) == (object.x, object.y) and object.name == 'stairs' and object.char == '<':
-                        change_depth(1)
-                        break
-                return_stairs = Object(player.x, player.y, '>', 'stairs', always_visible=True, color=libtcod.white)
-                objects.append(return_stairs)
-                return_stairs.send_to_back()
-
-            if key_char == 'i':
-                # show the inventory; if an item is selected, use it
-                chosen_item = inventory_menu('Press the key next to an item to use it, or any other to cancel.\n')
-                if chosen_item is not None:
-                    chosen_item.use()
-
-            if key_char == 'd':
-                # show the inventory; if an item is selected it, drop it onto the floor (removing it from the inventory)
-                chosen_item = inventory_menu('Press the key next to an item to drop it, or any other to cancel.\n')
-                if chosen_item is not None:
-                    chosen_item.drop()
-
+            if key.c in branch:
+                branch[key.c]()
             return 'didnt-take-turn'
 
+
+###########
+# END OF KEYBOARD HANDLING
+###########
 
 def draw_all():
     draw_map_panel()
