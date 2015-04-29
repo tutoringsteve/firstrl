@@ -707,7 +707,7 @@ player_move_or_attack_up = partial(player_move_or_attack, 0, -1)
 player_move_or_attack_down = partial(player_move_or_attack, 0, 1)
 player_move_or_attack_left = partial(player_move_or_attack, -1, 0)
 player_move_or_attack_right = partial(player_move_or_attack, 1, 0)
-
+player_wait_one_turn = partial(player_move_or_attack, 0, 0)
 
 def pickup_item():
     for object in reversed(objects):
@@ -761,26 +761,31 @@ def handle_keys():
     elif key.vk == libtcod.KEY_ESCAPE:
         return 'exit'
 
-    branch = {libtcod.KEY_UP: player_move_or_attack_up,
-              libtcod.KEY_KP8: player_move_or_attack_up,
-              libtcod.KEY_DOWN: player_move_or_attack_down,
-              libtcod.KEY_KP2: player_move_or_attack_down,
-              libtcod.KEY_LEFT: player_move_or_attack_left,
-              libtcod.KEY_KP4: player_move_or_attack_left,
-              libtcod.KEY_RIGHT: player_move_or_attack_right,
-              libtcod.KEY_KP6: player_move_or_attack_right,
-              ord('d'): drop_from_inventory,
-              ord('g'): pickup_item,
-              ord('i'): view_inventory,
-              ord('>'): use_stairs_up,
-              ord('<'): use_stairs_down}
+    playing_controls = {libtcod.KEY_UP: player_move_or_attack_up,
+                        libtcod.KEY_DOWN: player_move_or_attack_down,
+                        libtcod.KEY_LEFT: player_move_or_attack_left,
+                        libtcod.KEY_RIGHT: player_move_or_attack_right,
+                        libtcod.KEY_KP2: player_move_or_attack_down,
+                        libtcod.KEY_KP4: player_move_or_attack_left,
+                        libtcod.KEY_KP5: player_wait_one_turn,
+                        libtcod.KEY_KP6: player_move_or_attack_right,
+                        libtcod.KEY_KP8: player_move_or_attack_up,
+                        ord('d'): drop_from_inventory,
+                        ord('g'): pickup_item,
+                        ord('i'): view_inventory,
+                        ord('>'): use_stairs_up,
+                        ord('<'): use_stairs_down}
 
-    if game_state == 'playing':
-        if key.vk in branch:
-            branch[key.vk]()
+    keyboard_controls_by_context = {'playing': playing_controls}
+
+    if game_state in keyboard_controls_by_context:
+        controls = keyboard_controls_by_context[game_state]
+
+        if key.vk in controls:
+            controls[key.vk]()
         else:
-            if key.c in branch:
-                branch[key.c]()
+            if key.c in controls:
+                controls[key.c]()
             return 'didnt-take-turn'
 
 
