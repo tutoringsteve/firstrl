@@ -467,6 +467,45 @@ def load_game():
     initialize_fov()
 
 
+# collect all monster probabilities which are non-zero for the current_depth
+# put into dictionary monster-chances = { 'monster-name' : %chance-on-current-depth
+# divide each %chance-on-current-depth by sum(monster-chances)
+monsters = {'orc': {0: 1.0, 1: 1.0, 2: 1.0, 3: 1.0, 4: 1.0, 5: 1.0, 6: 0.95, 7: 0.9, 8: 0.85, 9: 0.8, 10: 0.75, 11: 0.7,
+                    12: 0.65, 13: 0.6, 14: 0.55, 15: 0.5},
+            'troll': {5: .3, 6: .4, 7: .5, 8: .6, 9: .8, 10: 1.0, 11: 0.95, 12: 0.9, 13: 0.85, 14: 0.8, 15: 0.75,
+                      16: 0.7, 17: 0.65, 18: 0.6, 19: 0.55, 20: 0.5}}
+
+
+def depth_chances():
+    global current_depth
+    unweighted_monster_chances = {monster: monsters[monster][current_depth] for monster in monsters if
+                                  current_depth in monsters[monster]}
+    # monster_chances['monster'] = monster_appearance_stats[current_depth]
+    weight = sum(unweighted_monster_chances.values())
+    monster_chances = {monster: (unweighted_monster_chances[current_depth] / weight) for
+                       (monster, unweighted_monster_chances) in unweighted_monster_chances.iteritems()}
+
+
+def random_choice(objects_chances_dict):
+    choices = objects_chances_dict.keys()
+    chances = objects_chances_dict.values()
+
+    if len(choices) == 0 or len(chances) == 0:
+        raise RuntimeError('object_chances_dict had an empty value or keys set ')
+
+    if len(choices) != len(chances):
+        raise RuntimeError('random choice needs a dictionary with a 1-to-1 key: value relationship')
+
+    running_total_chance = 0
+
+    dice_roll = libtcod.random_get_int(0, 0, 100)
+
+    for index, chance in enumerate(chances):
+        running_total_chance += chance
+        if dice_roll <= running_total_chance:
+            return choices[index]
+
+
 def place_objects(room):
     # choose random number of monsters
     num_monsters = libtcod.random_get_int(0, 0, MAX_ROOM_MONSTERS)
@@ -676,6 +715,7 @@ def new_game():
     messages = []
     message('Welcome back to <game>, player ' + player.name + '! Prepare to die!')
 
+
 #############
 # KEYBOARD EVENT HANDLING
 #############
@@ -703,6 +743,7 @@ def player_move_or_attack(dx, dy):
         player.move(dx, dy)
         fov_recompute = True
 
+
 player_move_or_attack_up = partial(player_move_or_attack, 0, -1)
 player_move_or_attack_down = partial(player_move_or_attack, 0, 1)
 player_move_or_attack_left = partial(player_move_or_attack, -1, 0)
@@ -722,14 +763,14 @@ def drop_from_inventory():
     chosen_item = inventory_menu('Press the key next to an item to drop it, or any other to cancel.\n')
     if chosen_item is not None:
         chosen_item.drop()
-    
+
 
 def view_inventory():
     # show the inventory; if an item is selected, use it
     chosen_item = inventory_menu('Press the key next to an item to use it, or any other to cancel.\n')
     if chosen_item is not None:
         chosen_item.use()
-    
+
 
 def use_stairs_up():
     # go upstairs
@@ -740,7 +781,7 @@ def use_stairs_up():
     return_stairs = Object(player.x, player.y, '>', 'stairs', always_visible=True, color=libtcod.white)
     objects.append(return_stairs)
     return_stairs.send_to_back()
-    
+
 
 def use_stairs_down():
     # go downstairs
@@ -751,7 +792,7 @@ def use_stairs_down():
     return_stairs = Object(player.x, player.y, '<', 'stairs', always_visible=True, color=libtcod.white)
     objects.append(return_stairs)
     return_stairs.send_to_back()
-    
+
 
 def handle_keys():
     global key
@@ -967,7 +1008,7 @@ def get_names_under_mouse():
     (x, y) = (mouse.cx - STAT_PANEL_WIDTH, mouse.cy)
     names = [obj.name for obj in objects if (obj.x, obj.y) == (x, y) and
              ((obj.always_visible and tile_map[x][y].explored) or
-             libtcod.map_is_in_fov(fov_map, obj.x, obj.y))]
+              libtcod.map_is_in_fov(fov_map, obj.x, obj.y))]
 
     names = set(names)
     names = ', '.join(names)
