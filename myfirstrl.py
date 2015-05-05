@@ -467,22 +467,24 @@ def load_game():
     initialize_fov()
 
 
-# monsters = { 'monster-name': {depth: chance-of-spawning-at-depth,       #0 < chance-of-spawning-at-depth <= 100
+# monster_spawn_stats = { 'monster-name': {depth: chance-of-spawning-at-depth,   #0 < chance-of-spawning-at-depth <= 100
 # depth2: chance-of-spawning-at-depth2, ... }
-monsters = {'orc': {0: 100, 1: 100, 2: 100, 3: 100, 4: 100, 5: 100, 6: 95, 7: 90, 8: 85, 9: 80, 10: 75, 11: 70,
-                    12: 65, 13: 60, 14: 55, 15: 50},
-            'troll': {5: 30, 6: 40, 7: 50, 8: 60, 9: 80, 10: 100, 11: 95, 12: 90, 13: 85, 14: 80, 15: 75,
-                      16: 70, 17: 65, 18: 60, 19: 55, 20: 50}}
+monster_spawn_stats = {
+    'orc': {0: 100, 1: 100, 2: 100, 3: 100, 4: 100, 5: 100, 6: 95, 7: 90, 8: 85, 9: 80, 10: 75, 11: 70,
+            12: 65, 13: 60, 14: 55, 15: 50},
+    'troll': {5: 30, 6: 40, 7: 50, 8: 60, 9: 80, 10: 100, 11: 95, 12: 90, 13: 85, 14: 80, 15: 75,
+              16: 70, 17: 65, 18: 60, 19: 55, 20: 50}}
 
-items = {'healing potion': {0: 100, 1: 100, 2: 100, 3: 100, 4: 100, 5: 100, 6: 95, 7: 90, 8: 85, 9: 80, 10: 75, 11: 70,
-                            12: 65, 13: 60, 14: 55, 15: 50, 16: 70, 17: 65, 18: 60, 19: 55, 20: 50},
-         'scroll of lightning bolt': {0: 100, 1: 100, 2: 100, 3: 100, 4: 100, 5: 100, 6: 95, 7: 90, 8: 85, 9: 80,
-                                      10: 75, 11: 70, 12: 65, 13: 60, 14: 55, 15: 50, 16: 70, 17: 65, 18: 60, 19: 55,
-                                      20: 50},
-         'scroll of fireball': {0: 100, 1: 100, 2: 100, 3: 100, 4: 100, 5: 100, 6: 95, 7: 90, 8: 85, 9: 80, 10: 75,
-                                11: 70, 12: 65, 13: 60, 14: 55, 15: 50, 16: 70, 17: 65, 18: 60, 19: 55, 20: 50},
-         'scroll of confusion': {0: 100, 1: 100, 2: 100, 3: 100, 4: 100, 5: 100, 6: 95, 7: 90, 8: 85, 9: 80, 10: 75,
-                                 11: 70, 12: 65, 13: 60, 14: 55, 15: 50, 16: 70, 17: 65, 18: 60, 19: 55, 20: 50}}
+item_spawn_stats = {
+    'healing potion': {0: 100, 1: 100, 2: 100, 3: 100, 4: 100, 5: 100, 6: 95, 7: 90, 8: 85, 9: 80, 10: 75, 11: 70,
+                       12: 65, 13: 60, 14: 55, 15: 50, 16: 70, 17: 65, 18: 60, 19: 55, 20: 50},
+    'scroll of lightning bolt': {0: 100, 1: 100, 2: 100, 3: 100, 4: 100, 5: 100, 6: 95, 7: 90, 8: 85, 9: 80,
+                                 10: 75, 11: 70, 12: 65, 13: 60, 14: 55, 15: 50, 16: 70, 17: 65, 18: 60, 19: 55,
+                                 20: 50},
+    'scroll of fireball': {0: 100, 1: 100, 2: 100, 3: 100, 4: 100, 5: 100, 6: 95, 7: 90, 8: 85, 9: 80, 10: 75,
+                           11: 70, 12: 65, 13: 60, 14: 55, 15: 50, 16: 70, 17: 65, 18: 60, 19: 55, 20: 50},
+    'scroll of confusion': {0: 100, 1: 100, 2: 100, 3: 100, 4: 100, 5: 100, 6: 95, 7: 90, 8: 85, 9: 80, 10: 75,
+                            11: 70, 12: 65, 13: 60, 14: 55, 15: 50, 16: 70, 17: 65, 18: 60, 19: 55, 20: 50}}
 
 
 def depth_chances(depth, game_objects):
@@ -527,7 +529,7 @@ def place_objects(room):
         y = libtcod.random_get_int(0, room.y1 + 1, room.y2 - 1)
 
         if not is_blocked(x, y):
-            monster_name = random_choice(current_depth, monsters)
+            monster_name = random_choice(current_depth, monster_spawn_stats)
             if monster_name == 'orc':
                 fighter_component = Fighter(hp=10, defense=0, power=3, death_function=monster_death)
                 ai_component = BasicMonster()
@@ -552,32 +554,15 @@ def place_items(room):
         x = libtcod.random_get_int(0, room.x1 + 1, room.x2 - 1)
         y = libtcod.random_get_int(0, room.y1 + 1, room.y2 - 1)
         if not is_blocked(x, y):
-            item_name = random_choice(current_depth, items)
-            if item_name == 'healing potion':
-                # healing potion
-                item_component = Item(use_function=cast_heal)
-                item = Object(x, y, '!', 'healing potion', always_visible=True, color=libtcod.violet,
-                              item=item_component)
-            elif item_name == 'scroll of lightning bolt':
-                # scroll of lightning
-                item_component = Item(use_function=cast_lightning)
-                item = Object(x, y, '?', 'scroll of lightning bolt', always_visible=True, color=libtcod.light_yellow,
-                              item=item_component)
-            elif item_name == 'scroll of fireball':
-                # scroll of fireball
-                item_component = Item(use_function=cast_fireball)
-                item = Object(x, y, '?', 'scroll of fireball', always_visible=True, color=libtcod.dark_orange,
-                              item=item_component)
-            elif item_name == 'scroll of confusion':
-                # create a scroll of confusion
-                item_component = Item(use_function=cast_confuse)
-                item = Object(x, y, '?', 'scroll of confusion', always_visible=True, color=libtcod.darker_red,
-                              item=item_component)
 
-            if item.name in items:
-                objects.append(item)
-                # make sure items are drawn underneath the player and monsters
-                item.send_to_back()
+            item_name = random_choice(current_depth, item_spawn_stats)
+            item_component = Item(items[item_name]['use_function'])
+            item = Object(x, y, items[item_name]['char'], item_name, always_visible=True,
+                          color=items[item_name]['color'], item=item_component)
+
+            objects.append(item)
+            # make sure items are drawn underneath the player and monsters
+            item.send_to_back()
 
 
 class Item:
@@ -660,6 +645,16 @@ def cast_fireball():
             message('The ' + obj.name + ' gets burned for ' + str(FIREBALL_DAMAGE) + ' hit points.',
                     color=libtcod.lightest_red)
             obj.fighter.take_damage(FIREBALL_DAMAGE)
+
+
+items = {
+    'healing potion': {'name': 'healing potion', 'char': '!', 'color': libtcod.violet, 'use_function': cast_heal},
+    'scroll of lightning bolt': {'name': 'scroll of lightning bolt', 'char': '?', 'color': libtcod.light_yellow,
+                                 'use_function': cast_lightning},
+    'scroll of fireball': {'name': 'scroll of fireball', 'char': '?', 'color': libtcod.dark_orange,
+                           'use_function': cast_fireball},
+    'scroll of confusion': {'name': 'scroll of confusion', 'char': '?', 'color': libtcod.darker_red,
+                            'use_function': cast_confuse}}
 
 
 def place_stairs(rooms):
