@@ -467,29 +467,39 @@ def load_game():
     initialize_fov()
 
 
-# collect all monster probabilities which are non-zero for the current_depth
-# put into dictionary monster-chances = { 'monster-name' : %chance-on-current-depth
-# divide each %chance-on-current-depth by sum(monster-chances)
-monsters = {'orc': {0: 1.0, 1: 1.0, 2: 1.0, 3: 1.0, 4: 1.0, 5: 1.0, 6: 0.95, 7: 0.9, 8: 0.85, 9: 0.8, 10: 0.75, 11: 0.7,
-                    12: 0.65, 13: 0.6, 14: 0.55, 15: 0.5},
-            'troll': {5: .3, 6: .4, 7: .5, 8: .6, 9: .8, 10: 1.0, 11: 0.95, 12: 0.9, 13: 0.85, 14: 0.8, 15: 0.75,
-                      16: 0.7, 17: 0.65, 18: 0.6, 19: 0.55, 20: 0.5}}
+# monsters = { 'monster-name': {depth: chance-of-spawning-at-depth,       #0 < chance-of-spawning-at-depth <= 100
+# depth2: chance-of-spawning-at-depth2, ... }
+monsters = {'orc': {0: 100, 1: 100, 2: 100, 3: 100, 4: 100, 5: 100, 6: 95, 7: 90, 8: 85, 9: 80, 10: 75, 11: 70,
+                    12: 65, 13: 60, 14: 55, 15: 50},
+            'troll': {5: 30, 6: 40, 7: 50, 8: 60, 9: 80, 10: 100, 11: 95, 12: 90, 13: 85, 14: 80, 15: 75,
+                      16: 70, 17: 65, 18: 60, 19: 55, 20: 50}}
+
+items = {'healing potion': {0: 100, 1: 100, 2: 100, 3: 100, 4: 100, 5: 100, 6: 95, 7: 90, 8: 85, 9: 80, 10: 75, 11: 70,
+                            12: 65, 13: 60, 14: 55, 15: 50, 16: 70, 17: 65, 18: 60, 19: 55, 20: 50},
+         'scroll of lightning bolt': {0: 100, 1: 100, 2: 100, 3: 100, 4: 100, 5: 100, 6: 95, 7: 90, 8: 85, 9: 80,
+                                      10: 75, 11: 70, 12: 65, 13: 60, 14: 55, 15: 50, 16: 70, 17: 65, 18: 60, 19: 55,
+                                      20: 50},
+         'scroll of fireball': {0: 100, 1: 100, 2: 100, 3: 100, 4: 100, 5: 100, 6: 95, 7: 90, 8: 85, 9: 80, 10: 75,
+                                11: 70, 12: 65, 13: 60, 14: 55, 15: 50, 16: 70, 17: 65, 18: 60, 19: 55, 20: 50},
+         'scroll of confusion': {0: 100, 1: 100, 2: 100, 3: 100, 4: 100, 5: 100, 6: 95, 7: 90, 8: 85, 9: 80, 10: 75,
+                                 11: 70, 12: 65, 13: 60, 14: 55, 15: 50, 16: 70, 17: 65, 18: 60, 19: 55, 20: 50}}
 
 
-def depth_chances():
-    global current_depth
-    unweighted_monster_chances = {monster: monsters[monster][current_depth] for monster in monsters if
-                                  current_depth in monsters[monster]}
-    # monster_chances['monster'] = monster_appearance_stats[current_depth]
-    weight = sum(unweighted_monster_chances.values())
-    monster_chances = {monster: (unweighted_monster_chances[current_depth] / weight) for
-                       (monster, unweighted_monster_chances) in unweighted_monster_chances.iteritems()}
+def depth_chances(depth, game_objects):
+    object_chances = {game_object: game_objects[game_object][depth] for game_object in game_objects if
+                      depth in game_objects[game_object]}
+    weight = sum(object_chances.values())
+    for game_object in object_chances:
+        object_chances[game_object] = round((float(object_chances[game_object]) / weight) * 100)
+
+    return object_chances
 
 
-def random_choice(objects_chances_dict):
+def random_choice(depth, game_objects):
+    objects_chances_dict = depth_chances(depth, game_objects)
     choices = objects_chances_dict.keys()
     chances = objects_chances_dict.values()
-
+    print 'Objects_chances_dict =', objects_chances_dict
     if len(choices) == 0 or len(chances) == 0:
         raise RuntimeError('object_chances_dict had an empty value or keys set ')
 
@@ -499,10 +509,11 @@ def random_choice(objects_chances_dict):
     running_total_chance = 0
 
     dice_roll = libtcod.random_get_int(0, 0, 100)
-
+    print 'Dice_roll =', dice_roll
     for index, chance in enumerate(chances):
         running_total_chance += chance
         if dice_roll <= running_total_chance:
+            print 'choices[index] =', choices[index], 'index =', index
             return choices[index]
 
 
@@ -516,21 +527,17 @@ def place_objects(room):
         y = libtcod.random_get_int(0, room.y1 + 1, room.y2 - 1)
 
         if not is_blocked(x, y):
-            if libtcod.random_get_int(0, 0, 100) < 80:
-                # create an orc (80% chance)
+            monster_name = random_choice(current_depth, monsters)
+            if monster_name == 'orc':
                 fighter_component = Fighter(hp=10, defense=0, power=3, death_function=monster_death)
                 ai_component = BasicMonster()
-
                 monster = Object(x, y, 'o', 'Pathetic Orc', libtcod.desaturated_green, blocks=True,
                                  fighter=fighter_component, AI=ai_component)
-            else:
-                # create a Troll (20% chance)
+            elif monster_name == 'troll':
                 fighter_component = Fighter(hp=16, defense=1, power=4, death_function=monster_death)
                 ai_component = BasicMonster()
-
                 monster = Object(x, y, 'T', 'Troll Runt', libtcod.darker_green, blocks=True, fighter=fighter_component,
                                  AI=ai_component)
-
             objects.append(monster)
 
     place_items(room)
@@ -545,35 +552,29 @@ def place_items(room):
         x = libtcod.random_get_int(0, room.x1 + 1, room.x2 - 1)
         y = libtcod.random_get_int(0, room.y1 + 1, room.y2 - 1)
         if not is_blocked(x, y):
-            dice = libtcod.random_get_int(0, 0, 100)
-            if dice < 10:
+            item_name = random_choice(current_depth, items)
+            if item_name == 'healing potion':
                 # healing potion
                 item_component = Item(use_function=cast_heal)
                 item = Object(x, y, '!', 'healing potion', always_visible=True, color=libtcod.violet,
                               item=item_component)
-                objects.append(item)
-                # make sure items are drawn underneath the player and monsters
-                item.send_to_back()
-            elif dice < 10 + 10:
+            elif item_name == 'scroll of lightning bolt':
                 # scroll of lightning
                 item_component = Item(use_function=cast_lightning)
                 item = Object(x, y, '?', 'scroll of lightning bolt', always_visible=True, color=libtcod.light_yellow,
                               item=item_component)
-                objects.append(item)
-                # make sure items are drawn underneath the player and monsters
-                item.send_to_back()
-            elif dice < 10 + 10 + 70:
+            elif item_name == 'scroll of fireball':
                 # scroll of fireball
                 item_component = Item(use_function=cast_fireball)
                 item = Object(x, y, '?', 'scroll of fireball', always_visible=True, color=libtcod.dark_orange,
                               item=item_component)
-                objects.append(item)
-                item.send_to_back()
-            else:
+            elif item_name == 'scroll of confusion':
                 # create a scroll of confusion
                 item_component = Item(use_function=cast_confuse)
                 item = Object(x, y, '?', 'scroll of confusion', always_visible=True, color=libtcod.darker_red,
                               item=item_component)
+
+            if item.name in items:
                 objects.append(item)
                 # make sure items are drawn underneath the player and monsters
                 item.send_to_back()
@@ -678,15 +679,11 @@ def place_stairs(rooms):
                 objects.append(stair)
                 stair.send_to_back()
                 num_upstairs += 1
-                print '(x, y): ' + str(x) + ', ' + str(y) + ' and num_upstairs: ' + str(
-                    num_upstairs) + ' and num_downstairs: ' + str(num_downstairs)
             elif num_downstairs < downstairs:
                 stair = Object(x, y, '>', 'stairs', always_visible=True, color=libtcod.white)
                 objects.append(stair)
                 stair.send_to_back()
                 num_downstairs += 1
-                print '(x, y): ' + str(x) + ', ' + str(y) + ' and num_upstairs: ' + str(
-                    num_upstairs) + ' and num_downstairs: ' + str(num_downstairs)
             x = libtcod.random_get_int(0, room.x1 + 1, room.x2 - 1)
             y = libtcod.random_get_int(0, room.y1 + 1, room.y2 - 1)
 
