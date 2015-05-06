@@ -152,7 +152,7 @@ def midpoint(x1, y1, x2, y2):
 
 def plus_or_minus_one():
     zero_or_one = libtcod.random_get_int(0, 0, 1)
-    return (-1)**zero_or_one
+    return (-1) ** zero_or_one
 
 
 class Rect:
@@ -255,6 +255,13 @@ def render_bar(console, x, y, total_width, name, value, maximum, bar_color, back
     libtcod.console_print_ex(console, x + total_width / 2, y, libtcod.BKGND_NONE, libtcod.CENTER,
                              '%s: %s/%s' % (name, value, maximum))
     libtcod.console_set_default_background(console, libtcod.black)
+
+
+def possibly_plural_msg(quantity, name):
+    if quantity == 1:
+        return 'a ' + name
+    else:
+        return str(quantity) + ' ' + name + 's'
 
 
 def message(msg, color=libtcod.white, console=msg_con):
@@ -577,8 +584,9 @@ def place_items(room):
 
 
 class Item:
-    def __init__(self, use_function=None):
+    def __init__(self, use_function=None, quantity=1):
         self.use_function = use_function
+        self.quantity = quantity
 
     def use(self):
         # just call the "use_function" if it is defined
@@ -586,17 +594,28 @@ class Item:
             message('The ' + self.owner.name + ' cannot be used.', color=libtcod.orange)
         else:
             if self.use_function() != 'cancelled':
-                inventory.remove(self.owner)  # destroy after use, unless it was cancelled for some reason
+                if self.quantity == 1:
+                    inventory.remove(self.owner)  # destroy after use, unless it was cancelled for some reason
+                else:
+                    self.quantity -= 1
 
     # an item that can be picked up and used.
     def pick_up(self):
         # add to the player's inventory and remove from the map
+        for itm in inventory:
+            if itm.name == self.owner.name:
+                itm.item.quantity += self.quantity
+                objects.remove(self.owner)
+                message('You picked up ' + possibly_plural_msg(self.quantity, self.owner.name) + '!',
+                        color=libtcod.cyan)
+                return
         if len(inventory) >= 26:
             message('Your inventory is full, cannot pick up ' + self.owner.name + '.', color=libtcod.orange)
         else:
             inventory.append(self.owner)
             objects.remove(self.owner)
-            message('You picked up a ' + self.owner.name + '!', color=libtcod.cyan)
+            message('You picked up ' + possibly_plural_msg(self.quantity, self.owner.name) + '!',
+                    color=libtcod.cyan)
 
     def drop(self):
         # remove from player's inventory and add to floor underneath the player.
@@ -604,7 +623,8 @@ class Item:
         inventory.remove(self.owner)
         objects.append(self.owner)
         # self.owner.send_to_back()
-        message('You dropped a ' + self.owner.name + ' on the floor beneath you.', color=libtcod.cyan)
+        message('You dropped ' + possibly_plural_msg(self.quantity, self.owner.name) + ' on the floor beneath you.',
+                color=libtcod.cyan)
 
 
 def cast_heal():
@@ -697,6 +717,7 @@ def cast_phase_door():
         if not is_blocked(player.x + dx, player.y + dy):
             player_move_or_attack(dx, dy)
             searching_for_destination = False
+
 
 items = {
     'healing potion': {'name': 'healing potion', 'char': '!', 'color': libtcod.violet, 'use_function': cast_heal},
@@ -1022,7 +1043,8 @@ def inventory_menu(header):
     if len(inventory) == 0:
         options = ['Inventory is empty.']
     else:
-        options = [item.name for item in inventory]
+        options = [((str(item.item.quantity) + ' x ' + item.name) if item.item.quantity > 1 else item.name) for item in
+                   inventory]
 
     index = menu(header, options, INVENTORY_WIDTH)
 
