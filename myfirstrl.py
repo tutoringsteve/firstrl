@@ -484,7 +484,8 @@ item_spawn_stats = {
     'scroll of fireball': {0: 100, 1: 100, 2: 100, 3: 100, 4: 100, 5: 100, 6: 95, 7: 90, 8: 85, 9: 80, 10: 75,
                            11: 70, 12: 65, 13: 60, 14: 55, 15: 50, 16: 70, 17: 65, 18: 60, 19: 55, 20: 50},
     'scroll of confusion': {0: 100, 1: 100, 2: 100, 3: 100, 4: 100, 5: 100, 6: 95, 7: 90, 8: 85, 9: 80, 10: 75,
-                            11: 70, 12: 65, 13: 60, 14: 55, 15: 50, 16: 70, 17: 65, 18: 60, 19: 55, 20: 50}}
+                            11: 70, 12: 65, 13: 60, 14: 55, 15: 50, 16: 70, 17: 65, 18: 60, 19: 55, 20: 50},
+    'scroll of magic mapping': {0: 100, 1: 100, 2: 100, 3: 100, 4: 100, 5: 100}}
 
 
 def depth_chances(depth, game_objects):
@@ -554,7 +555,6 @@ def place_items(room):
         x = libtcod.random_get_int(0, room.x1 + 1, room.x2 - 1)
         y = libtcod.random_get_int(0, room.y1 + 1, room.y2 - 1)
         if not is_blocked(x, y):
-
             item_name = random_choice(current_depth, item_spawn_stats)
             item_component = Item(items[item_name]['use_function'])
             item = Object(x, y, items[item_name]['char'], item_name, always_visible=True,
@@ -647,6 +647,27 @@ def cast_fireball():
             obj.fighter.take_damage(FIREBALL_DAMAGE)
 
 
+def cast_magic_map():
+    global fov_recompute
+    # magic mapping marks the map as revealed, as if you had been to all the squares before.
+    message("Your mind's eye opens wide, and the surroundings feel somehow familiar to you.", color=libtcod.white)
+    libtcod.map_compute_fov(fov_map, player.x, player.y, 9999, FOV_LIGHT_WALLS, FOV_ALGO)
+    for y in xrange(MAP_HEIGHT):
+        for x in xrange(MAP_WIDTH):
+            if libtcod.map_is_walkable(fov_map, x, y):
+                tile_map[x-1][y-1].explored = True
+                tile_map[x-1][y].explored = True
+                tile_map[x-1][y+1].explored = True
+                tile_map[x][y-1].explored = True
+                tile_map[x][y].explored = True
+                tile_map[x][y+1].explored = True
+                tile_map[x+1][y-1].explored = True
+                tile_map[x+1][y].explored = True
+                tile_map[x+1][y+1].explored = True
+    fov_recompute = True
+    draw_map_panel()
+    libtcod.console_flush()
+
 items = {
     'healing potion': {'name': 'healing potion', 'char': '!', 'color': libtcod.violet, 'use_function': cast_heal},
     'scroll of lightning bolt': {'name': 'scroll of lightning bolt', 'char': '?', 'color': libtcod.light_yellow,
@@ -654,7 +675,9 @@ items = {
     'scroll of fireball': {'name': 'scroll of fireball', 'char': '?', 'color': libtcod.dark_orange,
                            'use_function': cast_fireball},
     'scroll of confusion': {'name': 'scroll of confusion', 'char': '?', 'color': libtcod.darker_red,
-                            'use_function': cast_confuse}}
+                            'use_function': cast_confuse},
+    'scroll of magic mapping': {'name': 'scroll of magic mapping', 'char': '?', 'color': libtcod.lightest_green,
+                                'use_function': cast_magic_map}}
 
 
 def place_stairs(rooms):
@@ -679,8 +702,6 @@ def place_stairs(rooms):
                 objects.append(stair)
                 stair.send_to_back()
                 num_downstairs += 1
-            x = libtcod.random_get_int(0, room.x1 + 1, room.x2 - 1)
-            y = libtcod.random_get_int(0, room.y1 + 1, room.y2 - 1)
 
 
 def new_game():
@@ -1052,7 +1073,6 @@ def play_game():
             for object in objects:
                 if object.AI:
                     object.AI.take_turn()
-
 
 def main_menu():
     img = libtcod.image_load('menu_background.png')
