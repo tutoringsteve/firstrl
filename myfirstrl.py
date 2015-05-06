@@ -50,6 +50,8 @@ CONFUSE_RANGE = 8
 FIREBALL_RADIUS = 3
 FIREBALL_DAMAGE = 12
 
+PHASE_DOOR_DISTANCE = 3
+
 LIMIT_FPS = 20
 
 color_dark_wall = libtcod.Color(r=0, g=0, b=100)
@@ -146,6 +148,11 @@ def make_map():
 
 def midpoint(x1, y1, x2, y2):
     return (x1 + x2) / 2, (y1 + y2) / 2
+
+
+def plus_or_minus_one():
+    zero_or_one = libtcod.random_get_int(0, 0, 1)
+    return (-1)**zero_or_one
 
 
 class Rect:
@@ -254,7 +261,7 @@ def message(msg, color=libtcod.white, console=msg_con):
     msg_width = libtcod.console_get_width(console)
     msg_lines = textwrap.wrap(msg, msg_width)
 
-    for line in msg_lines:
+    for line in reversed(msg_lines):
         messages.append((line, color))
 
 
@@ -485,7 +492,8 @@ item_spawn_stats = {
                            11: 70, 12: 65, 13: 60, 14: 55, 15: 50, 16: 70, 17: 65, 18: 60, 19: 55, 20: 50},
     'scroll of confusion': {0: 100, 1: 100, 2: 100, 3: 100, 4: 100, 5: 100, 6: 95, 7: 90, 8: 85, 9: 80, 10: 75,
                             11: 70, 12: 65, 13: 60, 14: 55, 15: 50, 16: 70, 17: 65, 18: 60, 19: 55, 20: 50},
-    'scroll of magic mapping': {0: 100, 1: 100, 2: 100, 3: 100, 4: 100, 5: 100}}
+    'scroll of magic mapping': {0: 100, 1: 100, 2: 100, 3: 100, 4: 100, 5: 100},
+    'scroll of phase door': {0: 100, 1: 100, 2: 100, 3: 100, 4: 100, 5: 100}}
 
 
 def depth_chances(depth, game_objects):
@@ -655,18 +663,37 @@ def cast_magic_map():
     for y in xrange(MAP_HEIGHT):
         for x in xrange(MAP_WIDTH):
             if libtcod.map_is_walkable(fov_map, x, y):
-                tile_map[x-1][y-1].explored = True
-                tile_map[x-1][y].explored = True
-                tile_map[x-1][y+1].explored = True
-                tile_map[x][y-1].explored = True
+                # flagging adjacent tiles so that the walls are also visible
+                tile_map[x - 1][y - 1].explored = True
+                tile_map[x - 1][y].explored = True
+                tile_map[x - 1][y + 1].explored = True
+                tile_map[x][y - 1].explored = True
                 tile_map[x][y].explored = True
-                tile_map[x][y+1].explored = True
-                tile_map[x+1][y-1].explored = True
-                tile_map[x+1][y].explored = True
-                tile_map[x+1][y+1].explored = True
+                tile_map[x][y + 1].explored = True
+                tile_map[x + 1][y - 1].explored = True
+                tile_map[x + 1][y].explored = True
+                tile_map[x + 1][y + 1].explored = True
     fov_recompute = True
     draw_map_panel()
     libtcod.console_flush()
+
+
+def cast_phase_door():
+    message("The air in front of you crackles with magic energy and begins to warble like heat waves. You step into the"
+            " disturbance as though it were an open door and find yourself several metres from where you were. Looking "
+            "back you see no sign of the disturbance.", libtcod.light_orange)
+
+    searching_for_destination = True
+    while searching_for_destination:
+        # choose dx, dy so that their sum is PHASE_DOOR_DISTANCE
+        dx = libtcod.random_get_int(0, 0, PHASE_DOOR_DISTANCE)
+        dy = PHASE_DOOR_DISTANCE - dx
+        # apply random + / - to dx , dy after determining their magnitude
+        dx *= plus_or_minus_one()
+        dy *= plus_or_minus_one()
+        if not is_blocked(player.x + dx, player.y + dy):
+            player_move_or_attack(dx, dy)
+            searching_for_destination = False
 
 items = {
     'healing potion': {'name': 'healing potion', 'char': '!', 'color': libtcod.violet, 'use_function': cast_heal},
@@ -677,7 +704,9 @@ items = {
     'scroll of confusion': {'name': 'scroll of confusion', 'char': '?', 'color': libtcod.darker_red,
                             'use_function': cast_confuse},
     'scroll of magic mapping': {'name': 'scroll of magic mapping', 'char': '?', 'color': libtcod.lightest_green,
-                                'use_function': cast_magic_map}}
+                                'use_function': cast_magic_map},
+    'scroll of phase door': {'name': 'scroll of phase door', 'char': '?', 'color': libtcod.lightest_azure,
+                             'use_function': cast_phase_door}}
 
 
 def place_stairs(rooms):
@@ -1073,6 +1102,7 @@ def play_game():
             for object in objects:
                 if object.AI:
                     object.AI.take_turn()
+
 
 def main_menu():
     img = libtcod.image_load('menu_background.png')
