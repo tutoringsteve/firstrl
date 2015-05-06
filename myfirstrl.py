@@ -497,8 +497,11 @@ item_spawn_stats = {
 
 
 def depth_chances(depth, game_objects):
+    # pull out all the objects with non-zero probabilities of spawning at depth and put them in a dictionary
+    # together with their probability of appearing at depth
     object_chances = {game_object: game_objects[game_object][depth] for game_object in game_objects if
                       depth in game_objects[game_object]}
+    # scale the probabilities so that their relative size is the same and their weighted sum is close to 100
     weight = sum(object_chances.values())
     for game_object in object_chances:
         object_chances[game_object] = round((float(object_chances[game_object]) / weight) * 100)
