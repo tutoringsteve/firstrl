@@ -1076,7 +1076,8 @@ def mouse_can_see(obj):
 
 
 def quantity_and_name_if_item_and_more_than_one_else_name(obj):
-    return (str(obj.item.quantity) + ' x ' + obj.name) if (obj.item and obj.item.quantity > 1) else obj.name
+    return (str(obj.item.quantity) + ' x ' + obj.name.capitalize()) if (obj.item and obj.item.quantity > 1) \
+        else obj.name.capitalize()
 
 
 def get_names_under_mouse():
@@ -1085,7 +1086,7 @@ def get_names_under_mouse():
     names = [quantity_and_name_if_item_and_more_than_one_else_name(obj) for obj in objects if (obj.x, obj.y) == (x, y)
              and mouse_can_see(obj)]
     names = ', '.join(names)
-    return names.capitalize()
+    return names
 
 
 def initialize_fov():
