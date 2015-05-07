@@ -1070,16 +1070,21 @@ def clear_all_consoles():
     libtcod.console_clear(0)
 
 
+def mouse_can_see(obj):
+    (x, y) = (mouse.cx - STAT_PANEL_WIDTH, mouse.cy)
+    return (obj.always_visible and tile_map[x][y].explored) or libtcod.map_is_in_fov(fov_map, obj.x, obj.y)
+
+
+def quantity_and_name_if_item_and_more_than_one_else_name(obj):
+    return (str(obj.item.quantity) + ' x ' + obj.name) if (obj.item and obj.item.quantity > 1) else obj.name
+
+
 def get_names_under_mouse():
     # return a string with the names of all objects under the mouse
     (x, y) = (mouse.cx - STAT_PANEL_WIDTH, mouse.cy)
-    names = [obj.name for obj in objects if (obj.x, obj.y) == (x, y) and
-             ((obj.always_visible and tile_map[x][y].explored) or
-              libtcod.map_is_in_fov(fov_map, obj.x, obj.y))]
-
-    names = set(names)
+    names = [quantity_and_name_if_item_and_more_than_one_else_name(obj) for obj in objects if (obj.x, obj.y) == (x, y)
+             and mouse_can_see(obj)]
     names = ', '.join(names)
-
     return names.capitalize()
 
 
