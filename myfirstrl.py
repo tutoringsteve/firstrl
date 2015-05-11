@@ -621,7 +621,14 @@ class Item:
         # remove from player's inventory and add to floor underneath the player.
         (self.owner.x, self.owner.y) = (player.x, player.y)
         inventory.remove(self.owner)
-        objects.append(self.owner)
+        item_was_dropped = False
+        for object in objects:
+            if (object.x, object.y == self.owner.x, self.owner.y) and (object.name == self.owner.name) and \
+                    (not item_was_dropped):
+                object.item.quantity += self.quantity
+                item_was_dropped = True
+        if not item_was_dropped:
+            objects.append(self.owner)
         # self.owner.send_to_back()
         message('You dropped ' + possibly_plural_msg(self.quantity, self.owner.name) + ' on the floor beneath you.',
                 color=libtcod.cyan)
