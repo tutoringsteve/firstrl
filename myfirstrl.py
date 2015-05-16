@@ -1144,6 +1144,7 @@ def play_game():
 
 
 def main_menu():
+    # will work with no image but the background on the menu will be plain black.
     img = libtcod.image_load('menu_background.png')
 
     while not libtcod.console_is_window_closed():
