@@ -619,19 +619,20 @@ class Item:
 
     def drop(self):
         # remove from player's inventory and add to floor underneath the player.
-        (self.owner.x, self.owner.y) = (player.x, player.y)
-        inventory.remove(self.owner)
-        item_was_dropped = False
+        self.owner.x, self.owner.y = player.x, player.y
+
+        same_item_on_tile_already = False
+
         for object in objects:
-            if (object.x, object.y == self.owner.x, self.owner.y) and (object.name == self.owner.name) and \
-                    (not item_was_dropped):
+            if object.item and self.owner.distance_to_object(object) == 0 and self.owner.name == object.name:
                 object.item.quantity += self.quantity
-                item_was_dropped = True
-        if not item_was_dropped:
+                same_item_on_tile_already = True
+        if not same_item_on_tile_already:
             objects.append(self.owner)
+
         # self.owner.send_to_back()
-        message('You dropped ' + possibly_plural_msg(self.quantity, self.owner.name) + ' on the floor beneath you.',
-                color=libtcod.cyan)
+        message('You dropped a ' + self.owner.name + ' on the floor beneath you.', color=libtcod.cyan)
+        inventory.remove(self.owner)
 
 
 def cast_heal():
