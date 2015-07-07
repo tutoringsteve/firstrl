@@ -229,7 +229,7 @@ def create_room(room):
                 tile_map[x][y].block_sight = False
 
 
-libtcod.console_set_custom_font('arial10x10.png', libtcod.FONT_TYPE_GRAYSCALE | libtcod.FONT_LAYOUT_TCOD)
+libtcod.console_set_custom_font('fonts/arial10x10.png', libtcod.FONT_TYPE_GRAYSCALE | libtcod.FONT_LAYOUT_TCOD)
 libtcod.console_init_root(SCREEN_WIDTH, SCREEN_HEIGHT, 'python/libtcod tutorial', False)
 con = libtcod.console_new(MAP_WIDTH, MAP_HEIGHT)
 stat_con = libtcod.console_new(STAT_PANEL_WIDTH, STAT_PANEL_HEIGHT)
@@ -479,7 +479,6 @@ def load_game():
     file.close()
 
     initialize_fov()
-
 
 # monster_spawn_stats = { 'monster-name': {depth: chance-of-spawning-at-depth,   #0 < chance-of-spawning-at-depth <= 100
 # depth2: chance-of-spawning-at-depth2, ... }
@@ -1063,6 +1062,10 @@ def inventory_menu(header):
         return inventory[index].item
 
 
+def debug_menu(header):
+    pass
+
+
 def clear_all():
     # clear all objects in the objects list
     for object in objects:
@@ -1145,7 +1148,7 @@ def play_game():
 
 def main_menu():
     # will work with no image but the background on the menu will be plain black.
-    img = libtcod.image_load('menu_background.png')
+    img = libtcod.image_load('images\menu_background.png')
 
     while not libtcod.console_is_window_closed():
         clear_all_consoles()
