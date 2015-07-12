@@ -272,7 +272,7 @@ def message(msg, color=libtcod.white, console=msg_con):
         messages.append((line, color))
 
 
-def closest_monster(max_range):
+def closest_target(max_range):
     # find closest enemy, up to a maximum range, and in the player's FOV
     closest_enemy = None
     closest_dist = max_range + 1
@@ -480,6 +480,7 @@ def load_game():
 
     initialize_fov()
 
+
 # monster_spawn_stats = { 'monster-name': {depth: chance-of-spawning-at-depth,   #0 < chance-of-spawning-at-depth <= 100
 # depth2: chance-of-spawning-at-depth2, ... }
 monster_spawn_stats = {
@@ -645,7 +646,7 @@ def cast_heal():
 
 
 def cast_lightning():
-    monster = closest_monster(LIGHTNING_RANGE)
+    monster = closest_target(LIGHTNING_RANGE)
     if monster is None:
         message('No enemy is close enough to strike.')
         return 'cancelled'
@@ -657,7 +658,7 @@ def cast_lightning():
 
 def cast_confuse():
     # find closest enemy in-range and confuse it
-    monster = closest_monster(CONFUSE_RANGE)
+    monster = closest_target(CONFUSE_RANGE)
     if monster is None:
         message('No enemy is close enough to confuse.', color=libtcod.orange)
         return 'cancelled'
@@ -689,7 +690,6 @@ def cast_magic_map():
     global fov_recompute
     # magic mapping marks the map as revealed, as if you had been to all the squares before.
     message("Your mind's eye opens wide, and the surroundings feel somehow familiar to you.", color=libtcod.white)
-    libtcod.map_compute_fov(fov_map, player.x, player.y, 9999, FOV_LIGHT_WALLS, FOV_ALGO)
     for y in xrange(MAP_HEIGHT):
         for x in xrange(MAP_WIDTH):
             if libtcod.map_is_walkable(fov_map, x, y):
@@ -740,6 +740,25 @@ items = {
                              'use_function': cast_phase_door}}
 
 
+def add_all_items_to_inventory():
+
+    """
+        add one of every item defined in items into the player inventory, up until the inventory maximum capacity
+        of 26 (a-z) is reached.
+    """
+
+    global inventory
+
+    for item_name in items:
+        x, y = player.x, player.y
+        item_component = Item(items[item_name]['use_function'])
+        item = Object(x, y, items[item_name]['char'], item_name, always_visible=True,
+                      color=items[item_name]['color'], item=item_component)
+        inventory.append(item)
+        if len(inventory) == 26:
+            break
+
+
 def place_stairs(rooms):
     num_upstairs = 0
     num_downstairs = 0
@@ -765,7 +784,7 @@ def place_stairs(rooms):
 
 
 def new_game():
-    global player, inventory, messages, game_state, player_action, current_depth
+    global player, inventory, messages, game_state, player_action, current_depth, objects
 
     # create the player Object
     fighter_component = Fighter(hp=30, defense=2, power=5, death_function=player_death)
@@ -782,7 +801,9 @@ def new_game():
     initialize_fov()
 
     game_state = 'playing'
+
     inventory = []
+    add_all_items_to_inventory()
 
     # welcome message
     messages = []
@@ -1004,7 +1025,7 @@ def draw_target_tile_highlighter():
 
 
 def menu(header, options, width, x=-1, y=-1):
-    global key
+
     if len(options) > 26:
         raise ValueError('Cannot have a menu with more than 26 options (a to z).')
 
@@ -1041,9 +1062,9 @@ def menu(header, options, width, x=-1, y=-1):
     print chr(key.c)
     index = key.c - ord('a')
     if (index >= 0) and (index < len(options)):
-        return index
+        return key, index
     else:
-        return None
+        return key, None
 
 
 def inventory_menu(header):
@@ -1053,7 +1074,7 @@ def inventory_menu(header):
         options = [((str(item.item.quantity) + ' x ' + item.name) if item.item.quantity > 1 else item.name) for item in
                    inventory]
 
-    index = menu(header, options, INVENTORY_WIDTH)
+    key, index = menu(header, options, INVENTORY_WIDTH)
 
     # if an item was chosen, return it
     if index is None or len(inventory) == 0:
@@ -1154,7 +1175,7 @@ def main_menu():
         clear_all_consoles()
         libtcod.image_blit_2x(img, 0, 0, 0)
 
-        choice = menu('', ['Play a new game', 'Continue last game', 'Quit'], width=24, x=4, y=2)
+        key, choice = menu('', ['Play a new game', 'Continue last game', 'Quit'], width=24, x=4, y=2)
         if key.vk == libtcod.KEY_ENTER and (key.lalt or key.ralt):
             # Alt + Enter: toggle full screen
             libtcod.console_set_fullscreen(not libtcod.console_is_fullscreen())
