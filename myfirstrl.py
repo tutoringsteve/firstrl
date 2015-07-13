@@ -722,7 +722,7 @@ def cast_phase_door():
         dx *= plus_or_minus_one()
         dy *= plus_or_minus_one()
         if not is_blocked(player.x + dx, player.y + dy):
-            player_move_or_attack(dx, dy)
+            player.move(dx, dy)
             searching_for_destination = False
 
 
@@ -740,11 +740,11 @@ items = {
                              'use_function': cast_phase_door}}
 
 
-def add_all_items_to_inventory():
+def add_all_items_to_inventory(count=99):
 
     """
-        add one of every item defined in items into the player inventory, up until the inventory maximum capacity
-        of 26 (a-z) is reached.
+        add count many of every item defined in items into the player inventory, up until the inventory maximum
+        capacity of 26 (a-z) is reached.
     """
 
     global inventory
@@ -754,6 +754,9 @@ def add_all_items_to_inventory():
         item_component = Item(items[item_name]['use_function'])
         item = Object(x, y, items[item_name]['char'], item_name, always_visible=True,
                       color=items[item_name]['color'], item=item_component)
+        if count > 1:
+            item.item.quantity = count
+
         inventory.append(item)
         if len(inventory) == 26:
             break
